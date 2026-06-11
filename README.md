@@ -33,6 +33,11 @@ dataset/                          resultado/
 Source folder names are product classes (e.g. `Peito_Congelado`, `Moela`); they
 are used **only to organize the output**, never as input to the algorithm.
 
+The provided base under `data/Train_and_Validation/` holds **18 classes × 50
+grayscale 1280×720 frames = 900 images**. Each image ships with a Windows
+`<name>.jpgZone.Identifier` sidecar file; these are metadata, not images, and are
+ignored by the pipeline.
+
 ## Technique constraints
 
 Only techniques from **Part 1** of the course are allowed:

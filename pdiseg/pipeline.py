@@ -55,8 +55,12 @@ def output_path(output_root, class_name: str, source_path, index: int) -> Path:
     return Path(output_root) / class_name / f"{stem}_segmentada_{index}.png"
 
 
-def run(input_root, output_root) -> RunSummary:
-    """Walk the dataset, detect, and write one PNG crop per detection."""
+def run(input_root, output_root, detector=detect) -> RunSummary:
+    """Walk the dataset, detect, and write one PNG crop per detection.
+
+    ``detector`` is the seam later slices use to plug in the real two-stage
+    detector (docs/adr/0001); it defaults to the trivial whole-frame placeholder.
+    """
     import imageio.v3 as iio
 
     images_processed = 0
@@ -64,7 +68,7 @@ def run(input_root, output_root) -> RunSummary:
     for source in find_source_images(input_root):
         class_name = source.parent.name
         image = iio.imread(source)
-        for index, bbox in enumerate(detect(image), start=1):
+        for index, bbox in enumerate(detector(image), start=1):
             dest = output_path(output_root, class_name, source, index)
             dest.parent.mkdir(parents=True, exist_ok=True)
             iio.imwrite(dest, crop(image, bbox))
