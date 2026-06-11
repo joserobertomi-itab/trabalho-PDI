@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 
-from .pipeline import run
+from .pipeline import detect_clusters, run
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -26,7 +26,7 @@ def main(argv: list[str] | None = None) -> None:
     )
     args = parser.parse_args(argv)
 
-    summary = run(args.input_root, args.output_root)
+    summary = run(args.input_root, args.output_root, detector=detect_clusters)
     print(
         f"Processed {summary.images_processed} images, "
         f"wrote {summary.crops_written} crops to {args.output_root}"

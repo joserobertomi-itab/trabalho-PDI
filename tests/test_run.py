@@ -90,6 +90,46 @@ def test_run_detects_on_preprocessed_but_crops_from_original(tmp_path):
     assert int(written.min()) == 200 and int(written.max()) == 200
 
 
+def _draw_text_block(img, x0, y0, x1, y1, bg=30, ink=220):
+    """Paint a region of bright vertical 'text' strokes on a dark background."""
+    img[y0:y1, x0:x1] = bg
+    for x in range(x0, x1, 8):  # strokes every 8px → local contrast like text
+        img[y0:y1, x : x + 3] = ink
+
+
+def test_detect_clusters_finds_a_single_text_block(tmp_path=None):
+    img = np.full((200, 400), 30, dtype=np.uint8)
+    _draw_text_block(img, 150, 80, 300, 140)
+
+    clusters = pdiseg.detect_clusters(img)
+
+    assert len(clusters) == 1
+    x, y, w, h = clusters[0]
+    cx, cy = x + w / 2, y + h / 2
+    assert 150 <= cx <= 300 and 80 <= cy <= 140  # centred on the block
+    assert w >= 100 and h >= 30  # roughly covers it
+
+
+def test_detect_clusters_returns_nothing_on_a_uniform_image():
+    img = np.full((200, 400), 120, dtype=np.uint8)
+    assert pdiseg.detect_clusters(img) == []
+
+
+def test_detect_clusters_separates_two_distant_blocks():
+    img = np.full((200, 500), 30, dtype=np.uint8)
+    _draw_text_block(img, 40, 80, 180, 140)
+    _draw_text_block(img, 320, 80, 460, 140)  # wide gap so they don't merge
+
+    assert len(pdiseg.detect_clusters(img)) == 2
+
+
+def test_detect_clusters_ignores_specks_below_min_area():
+    img = np.full((200, 400), 30, dtype=np.uint8)
+    _draw_text_block(img, 10, 10, 30, 30)  # ~20x20, far below the min-area threshold
+
+    assert pdiseg.detect_clusters(img) == []
+
+
 def test_preprocess_masks_the_fps_overlay_region():
     img = np.full((100, 300), 50, dtype=np.uint8)
     x, y, w, h = pdiseg.FPS_OVERLAY_REGION
@@ -172,7 +212,11 @@ def test_dump_preprocessed_writes_limited_preview_images(tmp_path):
 
 def test_module_entry_point_runs_over_given_dirs(tmp_path):
     dataset = tmp_path / "dataset"
-    _write_gray(dataset / "Peito_Congelado" / "img001.jpg")
+    src = dataset / "Peito_Congelado" / "img001.png"
+    src.parent.mkdir(parents=True)
+    frame = np.full((200, 400), 30, dtype=np.uint8)
+    _draw_text_block(frame, 300, 100, 440, 160)  # a detectable cluster, clear of FPS region
+    iio.imwrite(src, frame)
     out = tmp_path / "resultado"
 
     result = subprocess.run(

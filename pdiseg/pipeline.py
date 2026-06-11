@@ -49,6 +49,44 @@ def detect(image: np.ndarray) -> list[BBox]:
     return [(0, 0, width, height)]
 
 
+# Stage-1 label-cluster detection parameters. Reasonable defaults; the final
+# values are calibrated against the base in the calibration slice (issue #6).
+_CLUSTER_LOCAL_WINDOW = 25  # local-mean window for the adaptive text threshold
+_CLUSTER_TEXT_OFFSET = 15  # how much brighter than local background a stroke must be
+_CLUSTER_CLOSE_STRUCTURE = np.ones((7, 15))  # merge text strokes into solid blocks
+_CLUSTER_MIN_AREA = 800  # drop blobs smaller than this many pixels
+
+
+def detect_clusters(image: np.ndarray) -> list[BBox]:
+    """Locate label-cluster candidates via text density (docs/adr/0001, Stage 1).
+
+    Highlight locally-bright text, close it into solid blocks, label connected
+    components, and return each surviving block's bounding box. No false-positive
+    geometry filtering yet — that is Stage 3 (issue #4).
+    """
+    from scipy.ndimage import binary_closing, find_objects, label, uniform_filter
+
+    img = image.astype(np.float32)
+    local = uniform_filter(img, size=_CLUSTER_LOCAL_WINDOW)
+    text = img > local + _CLUSTER_TEXT_OFFSET
+    merged = binary_closing(text, structure=_CLUSTER_CLOSE_STRUCTURE)
+
+    # Watershed split (distance transform + watershed) is intentionally omitted:
+    # on sample frames clusters come out separated, not merged, so the split adds
+    # no value here. Revisit during calibration (issue #6) if merging appears.
+    labels, _ = label(merged)
+    boxes: list[BBox] = []
+    for index, slc in enumerate(find_objects(labels), start=1):
+        if slc is None:
+            continue
+        area = int((labels[slc] == index).sum())
+        if area < _CLUSTER_MIN_AREA:
+            continue
+        ys, xs = slc
+        boxes.append((xs.start, ys.start, xs.stop - xs.start, ys.stop - ys.start))
+    return boxes
+
+
 def preprocess(image: np.ndarray) -> np.ndarray:
     """Prepare a frame for detection: equalize contrast, then mask the FPS overlay."""
     from scipy.ndimage import median_filter
