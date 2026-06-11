@@ -130,6 +130,28 @@ def test_detect_clusters_ignores_specks_below_min_area():
     assert pdiseg.detect_clusters(img) == []
 
 
+def test_refine_to_name_label_isolates_the_dark_region():
+    img = np.full((200, 500), 120, dtype=np.uint8)
+    # Cluster region: bright brand badge on the left, dark name label on the right.
+    img[50:130, 100:180] = 210
+    img[50:130, 180:260] = 40
+    cluster = (100, 50, 160, 80)
+
+    rx, ry, rw, rh = pdiseg.refine_to_name_label(img, cluster)
+
+    # Inside the cluster, on the dark (right) side, and tighter than the cluster.
+    assert rx >= 100 and ry >= 50 and rx + rw <= 260 and ry + rh <= 130
+    assert rx + rw / 2 > 100 + 160 / 2
+    assert rw < 160
+
+
+def test_refine_to_name_label_falls_back_when_no_dark_region():
+    img = np.full((200, 500), 200, dtype=np.uint8)  # uniform cluster, no separation
+    cluster = (100, 50, 160, 80)
+
+    assert pdiseg.refine_to_name_label(img, cluster) == cluster
+
+
 def test_keep_label_clusters_keeps_a_label_sized_box():
     label = (200, 150, 150, 100)  # area 15000, elongation 1.5 — a plausible cluster
     assert pdiseg.keep_label_clusters([label]) == [label]

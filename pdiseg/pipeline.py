@@ -110,6 +110,53 @@ def keep_label_clusters(candidates: list[BBox]) -> list[BBox]:
     return kept
 
 
+# Stage-2 refinement (issue #5). The dark name label should occupy a sane fraction
+# of its cluster; outside this band the refinement is ambiguous and we fall back.
+_REFINE_MIN_FRACTION = 0.05
+_REFINE_MAX_FRACTION = 0.9
+
+
+def refine_to_name_label(image: np.ndarray, cluster_bbox: BBox) -> BBox:
+    """Shrink a cluster to its dark name-label box (docs/adr/0001, Stage 2).
+
+    Inside the cluster the bright brand badge and the dark name label are the two
+    dominant regions, so an Otsu threshold separates them; the largest dark
+    component is the name label. Falls back to the cluster box when the split is
+    ambiguous (uniform region, or a dark component that is implausibly small or
+    fills almost the whole cluster).
+    """
+    from scipy.ndimage import find_objects, label
+    from skimage.filters import threshold_otsu
+
+    x, y, w, h = cluster_bbox
+    region = image[y : y + h, x : x + w]
+    if region.size == 0 or region.max() == region.min():
+        return cluster_bbox
+
+    dark = region <= threshold_otsu(region)
+    labels, count = label(dark)
+    if count == 0:
+        return cluster_bbox
+
+    best_slice = None
+    best_area = 0
+    for index, slc in enumerate(find_objects(labels), start=1):
+        if slc is None:
+            continue
+        area = int((labels[slc] == index).sum())
+        if area > best_area:
+            best_area, best_slice = area, slc
+    if best_slice is None:
+        return cluster_bbox
+
+    ys, xs = best_slice
+    rw, rh = xs.stop - xs.start, ys.stop - ys.start
+    fraction = (rw * rh) / (w * h)
+    if not (_REFINE_MIN_FRACTION <= fraction <= _REFINE_MAX_FRACTION):
+        return cluster_bbox
+    return (x + xs.start, y + ys.start, rw, rh)
+
+
 def preprocess(image: np.ndarray) -> np.ndarray:
     """Prepare a frame for detection: equalize contrast, then mask the FPS overlay."""
     from scipy.ndimage import median_filter

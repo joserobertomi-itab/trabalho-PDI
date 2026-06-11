@@ -4,12 +4,19 @@ from __future__ import annotations
 
 import argparse
 
-from .pipeline import detect_clusters, keep_label_clusters, run
+from .pipeline import (
+    detect_clusters,
+    keep_label_clusters,
+    refine_to_name_label,
+    run,
+)
 
 
 def _detect_labels(image):
-    """Stage 1 (locate clusters) followed by Stage 3 (geometric FP rejection)."""
-    return keep_label_clusters(detect_clusters(image))
+    """Locate clusters (Stage 1), reject by geometry (Stage 3), refine to the
+    dark name label (Stage 2), each with cluster fallback."""
+    clusters = keep_label_clusters(detect_clusters(image))
+    return [refine_to_name_label(image, c) for c in clusters]
 
 
 def main(argv: list[str] | None = None) -> None:

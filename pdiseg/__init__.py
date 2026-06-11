@@ -10,6 +10,7 @@ from .pipeline import (
     keep_label_clusters,
     output_path,
     preprocess,
+    refine_to_name_label,
     run,
 )
 
@@ -25,5 +26,6 @@ __all__ = [
     "keep_label_clusters",
     "output_path",
     "preprocess",
+    "refine_to_name_label",
     "run",
 ]
