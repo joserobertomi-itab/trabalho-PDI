@@ -50,11 +50,25 @@ performs segmentation automatically via AI.
 
 ## Running
 
-> Status: pipeline design in progress (see `docs/adr/` once decisions land).
-> The two supported delivery formats are documented below; the run commands will
-> be filled in as the implementation takes shape.
+### Locally (Make)
 
-The solution is delivered in one of two forms:
+A `Makefile` wraps the common tasks (run `make help` to list them):
+
+```sh
+make setup      # create .venv and install runtime + dev dependencies
+make test       # run the test suite
+make run        # segment the base into resultado/<Class>/<source>_segmentada_<N>.png
+make calibrate  # write per-class overlays + stats.csv into calibration/ for review
+```
+
+Override the paths on the command line, e.g. `make run DATA=dataset OUT=resultado`
+or `make calibrate CALIB=calibration LIMIT=5`. Both `resultado/` and `calibration/`
+are git-ignored. The underlying entry points are `python -m pdiseg [IN] [OUT]`
+(segmentation) and `python -m pdiseg.calibrate_cli [IN] [OUT]` (calibration).
+
+### Delivery (issue #7)
+
+The frozen solution is delivered in one of two forms:
 
 - **Google Colab** — open the notebook, mount/point it at `dataset/`, run all cells.
 - **Docker Compose** — `docker compose up`, reading from `dataset/` and writing to

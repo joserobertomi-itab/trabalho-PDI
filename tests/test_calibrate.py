@@ -1,11 +1,15 @@
 """Calibration harness behavior, exercised through the public API (issue #6)."""
 
+import subprocess
+import sys
 from pathlib import Path
 
 import imageio.v3 as iio
 import numpy as np
 
 import pdiseg
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _draw_text_block(img, x0, y0, x1, y1, bg=30, ink=220):
@@ -128,3 +132,23 @@ def test_calibrate_writes_a_csv_stats_summary(tmp_path):
     # Header plus one row per class, with the funnel columns.
     assert "class_name" in text and "candidates" in text and "labels" in text
     assert "ClassA" in text and "ClassB" in text
+
+
+def test_calibrate_entry_point_runs_over_given_dirs(tmp_path):
+    dataset = tmp_path / "dataset"
+    _write_frame_with_block(dataset / "ClassA" / "f1.png", with_block=True)
+    out = tmp_path / "calibration"
+
+    result = subprocess.run(
+        [sys.executable, "-m", "pdiseg.calibrate_cli", str(dataset), str(out)],
+        capture_output=True,
+        text=True,
+        cwd=_REPO_ROOT,
+    )
+
+    assert result.returncode == 0, result.stderr
+    # No runpy re-import warning leaks to stderr.
+    assert "RuntimeWarning" not in result.stderr
+    assert (out / "stats.csv").exists()
+    assert (out / "ClassA" / "f1_overlay.png").exists()
+    assert "TOTAL" in result.stdout
