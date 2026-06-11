@@ -21,14 +21,29 @@ but recognizing the text is out of scope.
   of the source image. Two physical forms appear in the dataset:
   - **bandeja** (tray) — open tray packaging.
   - **selado** (sealed) — sealed/vacuum packaging.
-- **Segmentation** — isolating the package region from the background and
-  producing one or more cropped output images containing only that region.
+- **Name label** — the segmentation target: the dark, rounded-rectangle badge on a
+  package that carries the product name in bright text (e.g. "FILÉ DE PEITO",
+  "MOELA"). It is distinct from the **brand badge** ("SUPER FRANGO" logo) that sits
+  beside it. Each name label found in a source image becomes one segmented image.
+- **Brand badge** — the "SUPER FRANGO" logo region. It is *not* the target on its
+  own, but it is a constant landmark: it appears next to every name label and looks
+  the same across all classes.
+- **Label cluster** — the **brand badge + adjacent name label** taken as one unit.
+  It is the strong, consistent signature used to *locate* a product on the shelf;
+  the name label is then isolated inside it. A label-cluster crop already contains
+  the product name, so emitting it counts as a valid segmentation (not a false
+  positive) when name-label isolation can't be refined.
+- **Segmentation** — locating each name label in a source image and producing one
+  cropped output image per label, containing (at least) that label region.
 - **Class** — a product category, equal to a `dataset/` folder name (e.g.
   `Peito_Congelado`, `Moela`). Class names are used **only to organize results**,
   not as input to the algorithm.
-- **Source image** — an input photo under `dataset/<Class>/`.
+- **Source image** — an input frame under `dataset/<Class>/`. Grayscale, 1280×720,
+  with a burned-in "FPS: NN.NN" overlay in the top-left corner. Captured by a fixed
+  industrial camera at a fixed position; the unseen evaluation set uses the same
+  rig and the same resolution.
 - **Segmented image** — an output crop under `resultado/<Class>/`, one per detected
-  package region.
+  **name label** (`<source>_segmentada_<N>.png`).
 - **False positive** — an output image that does **not** contain the product name,
   or contains an irrelevant name (e.g. just "frango"). False positives are scored
   as errors. A crop holding only part of the name (e.g. "asas" in one, "resfriada"
