@@ -130,6 +130,37 @@ def test_detect_clusters_ignores_specks_below_min_area():
     assert pdiseg.detect_clusters(img) == []
 
 
+def test_keep_label_clusters_keeps_a_label_sized_box():
+    label = (200, 150, 150, 100)  # area 15000, elongation 1.5 — a plausible cluster
+    assert pdiseg.keep_label_clusters([label]) == [label]
+
+
+def test_keep_label_clusters_rejects_oversized_box():
+    ssa_box = (0, 0, 950, 700)  # ~full-height background / SSA box
+    assert pdiseg.keep_label_clusters([ssa_box]) == []
+
+
+def test_keep_label_clusters_rejects_elongated_box():
+    barcode = (100, 100, 400, 30)  # elongation ~13 — a barcode/edge
+    assert pdiseg.keep_label_clusters([barcode]) == []
+
+
+def test_keep_label_clusters_rejects_tiny_box():
+    speck = (10, 10, 30, 30)  # area 900, below the min
+    assert pdiseg.keep_label_clusters([speck]) == []
+
+
+def test_keep_label_clusters_filters_a_mixed_list():
+    label = (200, 150, 150, 100)
+    candidates = [
+        label,
+        (0, 0, 950, 700),  # oversized
+        (100, 100, 400, 30),  # elongated
+        (10, 10, 30, 30),  # tiny
+    ]
+    assert pdiseg.keep_label_clusters(candidates) == [label]
+
+
 def test_preprocess_masks_the_fps_overlay_region():
     img = np.full((100, 300), 50, dtype=np.uint8)
     x, y, w, h = pdiseg.FPS_OVERLAY_REGION

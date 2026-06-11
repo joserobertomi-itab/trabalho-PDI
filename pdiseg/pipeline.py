@@ -87,6 +87,29 @@ def detect_clusters(image: np.ndarray) -> list[BBox]:
     return boxes
 
 
+# Stage-3 geometric false-positive rejection (issue #4). Calibrated against the
+# base's Stage-1 candidates; final values are locked in the calibration slice (#6).
+_LABEL_MIN_AREA = 3000  # drop tiny text fragments
+_LABEL_MAX_AREA = 150000  # drop the SSA box / full-height background merges
+_LABEL_MAX_ELONGATION = 4.0  # drop barcodes / thin edges (rotation-invariant)
+
+
+def keep_label_clusters(candidates: list[BBox]) -> list[BBox]:
+    """Reject false positives by geometry (docs/adr/0001, Stage 3).
+
+    Keep only candidates whose area is label-sized and whose shape is not extremely
+    elongated. Elongation is rotation-invariant, so labels at 0deg or 90deg both
+    pass while barcodes and thin edges are dropped.
+    """
+    kept: list[BBox] = []
+    for x, y, w, h in candidates:
+        area = w * h
+        elongation = max(w, h) / min(w, h)
+        if _LABEL_MIN_AREA <= area <= _LABEL_MAX_AREA and elongation <= _LABEL_MAX_ELONGATION:
+            kept.append((x, y, w, h))
+    return kept
+
+
 def preprocess(image: np.ndarray) -> np.ndarray:
     """Prepare a frame for detection: equalize contrast, then mask the FPS overlay."""
     from scipy.ndimage import median_filter
