@@ -40,10 +40,6 @@ def find_source_images(input_root) -> list[Path]:
 
 # Fixed top-left region covering the burned-in "FPS: NN.NN" overlay (see CONTEXT.md).
 # Calibrated against the base; (x, y, width, height) in pixels.
-# NOTE (calibration #6): masking this region to 0 leaves a hard edge against bright
-# neighbours, which Stage 1 can pick up as a spurious cluster at the top-left on
-# low-content frames. Consider masking to a neutral value, or ignoring detections
-# that hug this region, when calibrating false-positive rejection.
 FPS_OVERLAY_REGION: BBox = (0, 0, 215, 48)
 
 
@@ -53,8 +49,10 @@ def detect(image: np.ndarray) -> list[BBox]:
     return [(0, 0, width, height)]
 
 
-# Stage-1 label-cluster detection parameters. Reasonable defaults; the final
-# values are calibrated against the base in the calibration slice (issue #6).
+# Stage-1 label-cluster detection parameters. LOCKED on the base (calibration #6,
+# docs/adr/0004): a wider morphological closing collapses the whole crate of packages
+# into one blob, so the closing stays small and clusters are kept many-per-frame to
+# match the "every visible name label" target.
 _CLUSTER_LOCAL_WINDOW = 25  # local-mean window for the adaptive text threshold
 _CLUSTER_TEXT_OFFSET = 15  # how much brighter than local background a stroke must be
 _CLUSTER_CLOSE_STRUCTURE = np.ones((7, 15))  # merge text strokes into solid blocks
@@ -91,8 +89,11 @@ def detect_clusters(image: np.ndarray) -> list[BBox]:
     return boxes
 
 
-# Stage-3 geometric false-positive rejection (issue #4). Calibrated against the
-# base's Stage-1 candidates; final values are locked in the calibration slice (#6).
+# Stage-3 geometric false-positive rejection (issue #4). LOCKED on the base
+# (calibration #6, docs/adr/0004). Kept deliberately loose: on the crinkled-bag
+# classes the real name labels are small in pixels and overlap the plastic-glare
+# noise in area, so raising the minimum drops real labels faster than noise. These
+# values favour recall (the "every visible name label" target) over precision.
 _LABEL_MIN_AREA = 3000  # drop tiny text fragments
 _LABEL_MAX_AREA = 150000  # drop the SSA box / full-height background merges
 _LABEL_MAX_ELONGATION = 4.0  # drop barcodes / thin edges (rotation-invariant)
@@ -169,8 +170,11 @@ def preprocess(image: np.ndarray) -> np.ndarray:
 
     working = median_filter(image, size=3)
     working = img_as_ubyte(equalize_hist(working))
+    # Fill the FPS overlay with the frame's median, not 0: a hard 0-edge against
+    # bright neighbours reads as a spurious top-left cluster in Stage 1 (calibration
+    # #6). A neutral fill leaves a flat region that produces no text-density response.
     x, y, w, h = FPS_OVERLAY_REGION
-    working[y : y + h, x : x + w] = 0
+    working[y : y + h, x : x + w] = int(np.median(working))
     return working
 
 

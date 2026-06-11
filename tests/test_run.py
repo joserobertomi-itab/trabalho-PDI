@@ -84,6 +84,13 @@ def _draw_text_block(img, x0, y0, x1, y1, bg=30, ink=220):
         img[y0:y1, x : x + 3] = ink
 
 
+def _gradient_frame(h, w):
+    """A full intensity-range background so equalize_hist is ~identity, leaving a
+    drawn text block's local contrast intact (a uniform background would collapse
+    after equalization). Use for tests that go through the preprocess path."""
+    return np.tile(np.linspace(0, 255, w).astype(np.uint8), (h, 1))
+
+
 def test_detect_clusters_finds_a_single_text_block(tmp_path=None):
     img = np.full((200, 400), 30, dtype=np.uint8)
     _draw_text_block(img, 150, 80, 300, 140)
@@ -172,7 +179,7 @@ def test_keep_label_clusters_filters_a_mixed_list():
 
 def test_detect_name_labels_finds_a_label_on_a_raw_frame(tmp_path=None):
     # A *raw* (un-preprocessed) frame: detect_name_labels must preprocess internally.
-    frame = np.full((300, 500), 30, dtype=np.uint8)
+    frame = _gradient_frame(300, 500)
     _draw_text_block(frame, 200, 100, 360, 180)  # label-cluster sized, clear of FPS region
 
     boxes = pdiseg.detect_name_labels(frame)
@@ -190,8 +197,10 @@ def test_preprocess_masks_the_fps_overlay_region():
     out = pdiseg.preprocess(img)
 
     region = out[y : y + h, x : x + w]
-    # The overlay region is wiped to a single constant value (masked out).
-    assert region.min() == region.max() == 0
+    # The overlay region is wiped to a single neutral constant (masked out). The
+    # value is the frame median, not 0, so it leaves no hard edge for Stage 1 to
+    # mistake for a cluster (calibration #6).
+    assert region.min() == region.max()
     assert out.shape == img.shape
 
 
@@ -266,8 +275,8 @@ def test_module_entry_point_runs_over_given_dirs(tmp_path):
     dataset = tmp_path / "dataset"
     src = dataset / "Peito_Congelado" / "img001.png"
     src.parent.mkdir(parents=True)
-    frame = np.full((200, 400), 30, dtype=np.uint8)
-    _draw_text_block(frame, 300, 100, 440, 160)  # a detectable cluster, clear of FPS region
+    frame = _gradient_frame(200, 400)
+    _draw_text_block(frame, 250, 80, 390, 150)  # a detectable cluster, clear of FPS region
     iio.imwrite(src, frame)
     out = tmp_path / "resultado"
 

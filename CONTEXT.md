@@ -61,6 +61,10 @@ must tolerate:
 - Package deformation
 - Lighting variation
 - Differences in product position and orientation
+- Many stacked packages per frame (a packed crate): mutual occlusion and dense
+  text clutter, so a frame normally holds several name labels at once
+- Crinkled-bag classes glare into high-contrast filaments that mimic text and are
+  the dominant source of false positives
 
 ## Dataset classes
 
