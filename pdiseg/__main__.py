@@ -4,19 +4,7 @@ from __future__ import annotations
 
 import argparse
 
-from .pipeline import (
-    detect_clusters,
-    keep_label_clusters,
-    refine_to_name_label,
-    run,
-)
-
-
-def _detect_labels(image):
-    """Locate clusters (Stage 1), reject by geometry (Stage 3), refine to the
-    dark name label (Stage 2), each with cluster fallback."""
-    clusters = keep_label_clusters(detect_clusters(image))
-    return [refine_to_name_label(image, c) for c in clusters]
+from .pipeline import run
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -38,7 +26,7 @@ def main(argv: list[str] | None = None) -> None:
     )
     args = parser.parse_args(argv)
 
-    summary = run(args.input_root, args.output_root, detector=_detect_labels)
+    summary = run(args.input_root, args.output_root)
     print(
         f"Processed {summary.images_processed} images, "
         f"wrote {summary.crops_written} crops to {args.output_root}"

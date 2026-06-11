@@ -40,6 +40,10 @@ def find_source_images(input_root) -> list[Path]:
 
 # Fixed top-left region covering the burned-in "FPS: NN.NN" overlay (see CONTEXT.md).
 # Calibrated against the base; (x, y, width, height) in pixels.
+# NOTE (calibration #6): masking this region to 0 leaves a hard edge against bright
+# neighbours, which Stage 1 can pick up as a spurious cluster at the top-left on
+# low-content frames. Consider masking to a neutral value, or ignoring detections
+# that hug this region, when calibrating false-positive rejection.
 FPS_OVERLAY_REGION: BBox = (0, 0, 215, 48)
 
 
@@ -195,13 +199,29 @@ def output_path(output_root, class_name: str, source_path, index: int) -> Path:
     return Path(output_root) / class_name / f"{stem}_segmentada_{index}.png"
 
 
-def run(input_root, output_root, detector=detect, preprocessor=preprocess) -> RunSummary:
-    """Walk the dataset, detect, and write one PNG crop per detection.
+def detect_name_labels(image: np.ndarray) -> list[BBox]:
+    """The two-stage detector (docs/adr/0001): a raw frame to its name labels.
 
-    Detection runs on the ``preprocessor``-ed image, but each crop is taken from
-    the original frame so the delivered crop stays faithful to the source.
-    ``detector`` / ``preprocessor`` are the seams later slices plug into
-    (docs/adr/0001); they default to the trivial placeholders.
+    Self-contained: preprocesses the frame, locates label clusters (Stage 1),
+    rejects false positives by geometry (Stage 3), and refines each surviving
+    cluster to its dark name label (Stage 2), with cluster fallback. The returned
+    boxes index into the *original* frame, so callers crop from the source.
+
+    The individual stages remain public so the calibration harness (issue #6) can
+    inspect each stage's output; this is the composed, primary interface.
+    """
+    working = preprocess(image)
+    clusters = keep_label_clusters(detect_clusters(working))
+    return [refine_to_name_label(working, cluster) for cluster in clusters]
+
+
+def run(input_root, output_root, detector=detect_name_labels) -> RunSummary:
+    """Walk the dataset, detect name labels, and write one PNG crop per detection.
+
+    ``detector`` receives each original frame and returns boxes into it; crops are
+    taken from that original frame so the delivered crop stays faithful. The
+    default is the real two-stage detector; tests inject a simpler detector to
+    exercise orchestration on its own.
     """
     import imageio.v3 as iio
 
@@ -210,8 +230,7 @@ def run(input_root, output_root, detector=detect, preprocessor=preprocess) -> Ru
     for source in find_source_images(input_root):
         class_name = source.parent.name
         image = iio.imread(source)
-        working = preprocessor(image)
-        for index, bbox in enumerate(detector(working), start=1):
+        for index, bbox in enumerate(detector(image), start=1):
             dest = output_path(output_root, class_name, source, index)
             dest.parent.mkdir(parents=True, exist_ok=True)
             iio.imwrite(dest, crop(image, bbox))

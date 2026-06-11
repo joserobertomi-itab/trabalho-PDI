@@ -30,7 +30,7 @@ def test_run_mirrors_classes_and_writes_a_valid_crop_per_source(tmp_path):
             _write_gray(dataset / klass / name)
 
     out = tmp_path / "resultado"
-    pdiseg.run(dataset, out)
+    pdiseg.run(dataset, out, detector=pdiseg.detect)  # trivial detector: orchestration only
 
     for klass, files in sources.items():
         for name in files:
@@ -58,35 +58,22 @@ def test_multiple_detections_are_numbered_from_one(tmp_path):
     assert not (out / "Moela" / "img003_segmentada_0.png").exists()
 
 
-def test_run_detects_on_preprocessed_but_crops_from_original(tmp_path):
+def test_run_crops_from_the_original_frame(tmp_path):
     dataset = tmp_path / "dataset"
     src = dataset / "ClassA" / "img001.png"  # PNG so the crop compares exactly
     src.parent.mkdir(parents=True)
     original = np.full((10, 10), 200, dtype=np.uint8)
     iio.imwrite(src, original)
 
-    seen = {}
-
-    def marking_preprocessor(image):
-        return np.zeros_like(image)  # erase everything
-
-    def recording_detector(image):
-        seen["max"] = int(image.max())  # what the detector actually received
-        h, w = image.shape[:2]
-        return [(0, 0, w, h)]
+    def box_detector(image):
+        return [(2, 2, 5, 5)]  # a sub-region of the frame
 
     out = tmp_path / "resultado"
-    pdiseg.run(
-        dataset,
-        out,
-        detector=recording_detector,
-        preprocessor=marking_preprocessor,
-    )
+    pdiseg.run(dataset, out, detector=box_detector)
 
-    # The detector saw the PREPROCESSED image (all zeros)...
-    assert seen["max"] == 0
-    # ...but the written crop came from the ORIGINAL frame (all 200).
     written = iio.imread(out / "ClassA" / "img001_segmentada_1.png")
+    # The crop is taken from the original frame at the detector's box.
+    assert written.shape == (5, 5)
     assert int(written.min()) == 200 and int(written.max()) == 200
 
 
@@ -181,6 +168,18 @@ def test_keep_label_clusters_filters_a_mixed_list():
         (10, 10, 30, 30),  # tiny
     ]
     assert pdiseg.keep_label_clusters(candidates) == [label]
+
+
+def test_detect_name_labels_finds_a_label_on_a_raw_frame(tmp_path=None):
+    # A *raw* (un-preprocessed) frame: detect_name_labels must preprocess internally.
+    frame = np.full((300, 500), 30, dtype=np.uint8)
+    _draw_text_block(frame, 200, 100, 360, 180)  # label-cluster sized, clear of FPS region
+
+    boxes = pdiseg.detect_name_labels(frame)
+
+    assert len(boxes) >= 1
+    for x, y, w, h in boxes:
+        assert x >= 0 and y >= 0 and x + w <= 500 and y + h <= 300
 
 
 def test_preprocess_masks_the_fps_overlay_region():
