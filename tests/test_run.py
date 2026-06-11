@@ -58,6 +58,78 @@ def test_multiple_detections_are_numbered_from_one(tmp_path):
     assert not (out / "Moela" / "img003_segmentada_0.png").exists()
 
 
+def test_run_detects_on_preprocessed_but_crops_from_original(tmp_path):
+    dataset = tmp_path / "dataset"
+    src = dataset / "ClassA" / "img001.png"  # PNG so the crop compares exactly
+    src.parent.mkdir(parents=True)
+    original = np.full((10, 10), 200, dtype=np.uint8)
+    iio.imwrite(src, original)
+
+    seen = {}
+
+    def marking_preprocessor(image):
+        return np.zeros_like(image)  # erase everything
+
+    def recording_detector(image):
+        seen["max"] = int(image.max())  # what the detector actually received
+        h, w = image.shape[:2]
+        return [(0, 0, w, h)]
+
+    out = tmp_path / "resultado"
+    pdiseg.run(
+        dataset,
+        out,
+        detector=recording_detector,
+        preprocessor=marking_preprocessor,
+    )
+
+    # The detector saw the PREPROCESSED image (all zeros)...
+    assert seen["max"] == 0
+    # ...but the written crop came from the ORIGINAL frame (all 200).
+    written = iio.imread(out / "ClassA" / "img001_segmentada_1.png")
+    assert int(written.min()) == 200 and int(written.max()) == 200
+
+
+def test_preprocess_masks_the_fps_overlay_region():
+    img = np.full((100, 300), 50, dtype=np.uint8)
+    x, y, w, h = pdiseg.FPS_OVERLAY_REGION
+    img[y : y + h, x : x + w] = 255  # simulate the bright FPS text
+
+    out = pdiseg.preprocess(img)
+
+    region = out[y : y + h, x : x + w]
+    # The overlay region is wiped to a single constant value (masked out).
+    assert region.min() == region.max() == 0
+    assert out.shape == img.shape
+
+
+def test_preprocess_equalizes_histogram_to_spread_contrast():
+    # Low-contrast ramp confined to a narrow intensity band.
+    ramp = np.linspace(100, 130, 256).astype(np.uint8)
+    img = np.tile(ramp, (300, 1))  # shape (300, 256)
+
+    out = pdiseg.preprocess(img)
+
+    # Compare a slice to the right of the masked FPS region (unaffected by masking).
+    _, _, w, _ = pdiseg.FPS_OVERLAY_REGION
+    in_range = int(img[:, w:].max()) - int(img[:, w:].min())
+    out_range = int(out[:, w:].max()) - int(out[:, w:].min())
+    assert out_range > in_range
+
+
+def test_preprocess_removes_salt_noise_with_median():
+    # Varied (gradient) background so equalization is well-behaved, plus one impulse.
+    col = np.linspace(0, 255, 300).astype(np.uint8)
+    img = np.repeat(col[:, None], 300, axis=1)  # shape (300, 300), value varies by row
+    img[150, 250] = 255  # lone salt impulse, outside the FPS region
+
+    out = pdiseg.preprocess(img)
+
+    # Median (run before equalization) replaces the impulse with its local value,
+    # so it ends up identical to its same-row neighbour. Without median it would not.
+    assert out[150, 250] == out[150, 240]
+
+
 def test_find_source_images_discovers_images_and_ignores_other_files(tmp_path):
     dataset = tmp_path / "dataset"
     _write_gray(dataset / "ClassA" / "a.jpg")
@@ -81,6 +153,21 @@ def test_find_source_images_ignores_zone_identifier_sidecars(tmp_path):
     found = pdiseg.find_source_images(dataset)
 
     assert [p.name for p in found] == ["img001.jpg"]
+
+
+def test_dump_preprocessed_writes_limited_preview_images(tmp_path):
+    dataset = tmp_path / "dataset"
+    for i in range(4):
+        _write_gray(dataset / "ClassA" / f"img{i}.jpg")
+
+    preview = tmp_path / "preview"
+    written = pdiseg.dump_preprocessed(dataset, preview, limit=3)
+
+    assert len(written) == 3
+    for path in written:
+        assert Path(path).exists()
+        data = iio.imread(path)
+        assert data.ndim >= 2 and data.size > 0
 
 
 def test_module_entry_point_runs_over_given_dirs(tmp_path):
