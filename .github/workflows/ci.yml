@@ -51,8 +51,14 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build image
-        run: docker compose build segment
+        run: docker compose build pipeline
 
-      - name: Smoke test entrypoint
+      - name: Smoke test CLI entrypoints
         run: |
-          docker compose run --rm --entrypoint pdiseg segment --help
+          docker compose run --rm --entrypoint pdiseg pipeline --help
+          docker compose run --rm --entrypoint pdiseg-calibrate pipeline --help
+          docker compose run --rm --entrypoint pdiseg-review pipeline --help
+          docker compose run --rm --entrypoint /usr/local/bin/docker-entrypoint.sh pipeline pdiseg --help
+
+      - name: End-to-end Compose smoke (dataset/ → resultado/)
+        run: bash scripts/docker-smoke.sh

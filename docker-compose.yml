@@ -1,19 +1,20 @@
-# Frozen segmentation pipeline — mount dataset read-only, write crops to resultado/.
+# Frozen poultry-packaging segmentation — Docker Compose delivery (issue #7).
 #
-#   docker compose run --rm segment
-#   docker compose run --rm calibrate
+#   mkdir -p resultado calibration
+#   docker compose up --build
 #
-# Override paths:
-#   DATA=./dataset OUT=./resultado docker compose run --rm segment
+# Input:  DATA (default ./data/Train_and_Validation)
+# Output: OUT  (default ./resultado)
+
+name: pdiseg
 
 services:
-  segment:
+  pipeline:
     build:
       context: .
       dockerfile: Dockerfile
     image: pdiseg:latest
-    entrypoint: ["pdiseg"]
-    command: ["/data/input", "/data/output"]
+    command: ["pdiseg", "/data/input", "/data/output"]
     volumes:
       - ${DATA:-./data/Train_and_Validation}:/data/input:ro
       - ${OUT:-./resultado}:/data/output
@@ -24,12 +25,15 @@ services:
       - /tmp:size=64M,mode=1777
 
   calibrate:
+    profiles: ["tools"]
+    image: pdiseg:latest
     build:
       context: .
       dockerfile: Dockerfile
-    image: pdiseg:latest
-    entrypoint: ["pdiseg-calibrate"]
+    environment:
+      PDISEG_PREPARE_CALIBRATION: "1"
     command:
+      - pdiseg-calibrate
       - /data/input
       - /data/calibration
       - --per-class-limit
@@ -37,6 +41,36 @@ services:
     volumes:
       - ${DATA:-./data/Train_and_Validation}:/data/input:ro
       - ${CALIB:-./calibration}:/data/calibration
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M,mode=1777
+
+  review:
+    profiles: ["tools"]
+    image: pdiseg:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command:
+      - pdiseg-review
+      - --dataset
+      - /data/input
+      - --calibration
+      - /data/calibration
+      - --resultado
+      - /data/output
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8765"
+    ports:
+      - "${PORT:-8765}:8765"
+    volumes:
+      - ${DATA:-./data/Train_and_Validation}:/data/input:ro
+      - ${CALIB:-./calibration}:/data/calibration:ro
+      - ${OUT:-./resultado}:/data/output:ro
     security_opt:
       - no-new-privileges:true
     read_only: true

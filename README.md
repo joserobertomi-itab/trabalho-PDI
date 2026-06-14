@@ -62,8 +62,21 @@ make help       # list all tasks
 make setup      # uv sync --extra dev (locked deps from uv.lock)
 make check      # lint + typecheck + tests
 make run        # segment the base into resultado/
-make calibrate  # overlays + stats.csv into calibration/
+make calibrate  # overlays + boxes.json + stats.csv into calibration/
+make review     # open http://127.0.0.1:8765/ (read-only review viewer)
 ```
+
+Full review workflow:
+
+```sh
+make setup
+make run        # writes resultado/<Class>/*_segmentada_N.png
+make calibrate  # writes calibration/boxes.json (all frames) + stats.csv
+make review     # browser: source | overlay | crops side by side
+```
+
+The review viewer is a **separate tool** outside the graded pipeline — it never
+runs detection. See [docs/review-viewer-contract.md](./docs/review-viewer-contract.md).
 
 Override paths on the command line:
 
@@ -77,28 +90,39 @@ Entry points (also available after `uv sync`):
 ```sh
 uv run pdiseg [INPUT_ROOT] [OUTPUT_ROOT]
 uv run pdiseg-calibrate [INPUT_ROOT] [OUTPUT_DIR] [--per-class-limit N]
+uv run pdiseg-review --dataset DATA --calibration CALIB --resultado OUT [--port 8765]
 python -m pdiseg [INPUT_ROOT] [OUTPUT_ROOT]
 python -m pdiseg.calibrate_cli [INPUT_ROOT] [OUTPUT_DIR]
 ```
 
 ## Running with Docker Compose
 
-Build once, then run segmentation or calibration with mounted volumes:
+**Submission path (issue #7):** `docker compose up --build` segments `dataset/` into
+`resultado/`. See [docs/docker-compose.md](./docs/docker-compose.md) for the full
+reference.
 
 ```sh
-cp .env.example .env   # optional: customize DATA / OUT / CALIB
-make docker-build
-make docker-run        # writes to ./resultado
-make docker-calibrate  # writes to ./calibration
+mkdir -p resultado calibration
+docker compose up --build                   # or: make docker-up
 ```
 
-Or directly:
+The default input path is `data/Train_and_Validation/` (see `.env.example`). For the
+assignment folder name `dataset/`, use a **real directory** (not a symlink — Docker
+fails to mount symlinks on some setups):
 
 ```sh
-docker compose run --rm segment
-docker compose run --rm calibrate
-DATA=./dataset OUT=./resultado docker compose run --rm segment
+DATA=./dataset docker compose up --build
 ```
+
+Optional tooling (same image, `tools` profile):
+
+```sh
+docker compose --profile tools run --rm calibrate   # calibration/
+docker compose --profile tools up review            # http://localhost:8765/
+```
+
+Unseen evaluation: replace `dataset/` contents (same layout), run `docker compose up`
+again — no code changes.
 
 The container runs as a non-root user (`pdiseg:1000`), with a read-only root
 filesystem; only the mounted output volumes are writable. The dataset mount is
@@ -151,7 +175,7 @@ measure generalization.
 ├── pyproject.toml      # project metadata + tool config (source of truth)
 ├── uv.lock             # locked dependency graph
 ├── Dockerfile          # multi-stage production image (uv + non-root)
-├── docker-compose.yml  # segment + calibrate services
+├── docker-compose.yml  # pipeline (+ calibrate/review via profile tools)
 ├── CONTEXT.md          # domain glossary
 ├── requirements.md     # original assignment brief (Portuguese)
 └── docs/

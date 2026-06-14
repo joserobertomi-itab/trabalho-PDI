@@ -20,14 +20,17 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Image Processing",
 ]
 dependencies = [
+    "fastapi>=0.115.12,<1",
     "imageio>=2.37.3,<3",
     "numpy>=2.4.6,<3",
     "scikit-image>=0.26.0,<0.27",
     "scipy>=1.17.1,<2",
+    "uvicorn[standard]>=0.34.0,<1",
 ]
 
 [project.optional-dependencies]
 dev = [
+    "httpx>=0.28.1",
     "matplotlib>=3.10.9,<4",
     "mypy>=1.19.1",
     "pre-commit>=4.5.1",
@@ -39,6 +42,7 @@ dev = [
 [project.scripts]
 pdiseg = "pdiseg.__main__:main"
 pdiseg-calibrate = "pdiseg.calibrate_cli:main"
+pdiseg-review = "pdiseg.review_cli:main"
 
 [project.urls]
 Repository = "https://github.com/ifg/pdiseg"
@@ -107,9 +111,12 @@ no_implicit_optional = true
 
 [[tool.mypy.overrides]]
 module = [
+    "fastapi.*",
     "imageio.*",
     "skimage.*",
     "scipy.*",
+    "starlette.*",
+    "uvicorn.*",
 ]
 ignore_missing_imports = true
 disable_error_code = ["no-untyped-call"]

@@ -51,6 +51,14 @@ but recognizing the text is out of scope.
   positioned.
 - **Generalization** — performance on unseen images not provided in advance,
   measured at presentation time with the code frozen.
+- **Overlay** — a copy of a source frame with the detector's per-stage bounding
+  boxes drawn on it (red = rejected candidates, yellow = kept clusters, green =
+  refined name labels). Used for human review; the review viewer renders overlays
+  for every frame from `calibration/boxes.json`, not only the sampled PNGs.
+- **Review viewer** — a standalone, read-only web tool (`pdiseg-review`) that
+  sits outside the graded pipeline. It reads source images, `calibration/boxes.json`,
+  optional `stats.csv`, and optional `resultado/` crops to present source, overlay,
+  and segmented images side by side for manual QA and presentation demos.
 
 ## Industrial-image challenges
 

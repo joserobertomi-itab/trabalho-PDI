@@ -7,10 +7,13 @@ DATA    ?= data/Train_and_Validation
 OUT     ?= resultado
 CALIB   ?= calibration
 LIMIT   ?= 3
+PORT    ?= 8765
+COMPOSE ?= docker compose
 
 .DEFAULT_GOAL := help
 
-.PHONY: help setup sync lock test lint format typecheck check ci run calibrate docker-build docker-run docker-calibrate clean
+.PHONY: help setup sync lock test lint format typecheck check ci run calibrate review \
+	docker-build docker-up docker-calibrate docker-review docker-smoke clean
 
 help:  ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -44,18 +47,28 @@ ci: sync check  ## Full local CI gate (sync + check)
 run:  ## Segment the base into $(OUT)/<Class>/<source>_segmentada_<N>.png
 	$(PY) pdiseg $(DATA) $(OUT)
 
-calibrate:  ## Run calibration harness: overlays + stats.csv into $(CALIB)/
+calibrate:  ## Run calibration harness: overlays + boxes.json + stats.csv into $(CALIB)/
 	$(PY) pdiseg-calibrate $(DATA) $(CALIB) --per-class-limit $(LIMIT)
 
-docker-build:  ## Build the production Docker image
-	docker compose build segment
+review:  ## Launch the read-only review viewer on http://127.0.0.1:$(PORT)/
+	$(PY) pdiseg-review --dataset $(DATA) --calibration $(CALIB) --resultado $(OUT) --port $(PORT)
 
-docker-run: docker-build  ## Segment via Docker Compose (mounts DATA and OUT)
-	docker compose run --rm segment
+docker-build:  ## Build the production Docker image (pipeline + tools)
+	$(COMPOSE) build pipeline
 
-docker-calibrate: docker-build  ## Calibrate via Docker Compose (mounts DATA and CALIB)
-	docker compose run --rm calibrate
+docker-up: docker-build  ## Submission path: docker compose up (DATA → resultado/)
+	DATA=./$(DATA) OUT=./resultado $(COMPOSE) up --build pipeline
+
+docker-calibrate: docker-build  ## Write calibration/ via Docker (boxes.json + stats)
+	DATA=./$(DATA) $(COMPOSE) --profile tools run --rm calibrate
+
+docker-review: docker-build  ## Run the review viewer in Docker on port $(PORT)
+	DATA=./$(DATA) OUT=./resultado CALIB=./calibration PORT=$(PORT) \
+		$(COMPOSE) --profile tools up review
+
+docker-smoke:  ## E2E Docker Compose smoke test (synthetic dataset/)
+	bash scripts/docker-smoke.sh
 
 clean:  ## Remove generated outputs and caches
-	rm -rf $(OUT) $(CALIB) .pytest_cache .ruff_cache .mypy_cache htmlcov .coverage coverage.xml
+	rm -rf $(OUT) $(CALIB) .docker-smoke .pytest_cache .ruff_cache .mypy_cache htmlcov .coverage coverage.xml
 	find . -type d -name __pycache__ -prune -exec rm -rf {} +

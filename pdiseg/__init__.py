@@ -1,15 +1,12 @@
 from .calibrate import (
     ClassStats,
-    FrameInspection,
     calibrate,
     inspect_frame,
-    render_overlay,
 )
+from .imaging import BBox, FrameInspection, crop, render_overlay
 from .pipeline import (
     FPS_OVERLAY_REGION,
-    BBox,
     RunSummary,
-    crop,
     detect,
     detect_clusters,
     detect_name_labels,

@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PDI Seg Review Viewer</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #111827;
+        --panel: #1f2937;
+        --text: #f9fafb;
+        --muted: #9ca3af;
+        --accent: #38bdf8;
+        --rejected: #dc3232;
+        --kept: #f0c828;
+        --label: #28c850;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+      header, .toolbar, .stats, .legend, .viewer, .crops {
+        padding: 0.75rem 1rem;
+      }
+      header {
+        background: #0b1220;
+        border-bottom: 1px solid #374151;
+      }
+      header h1 { margin: 0; font-size: 1.1rem; }
+      header p { margin: 0.25rem 0 0; color: var(--muted); font-size: 0.9rem; }
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: center;
+        background: var(--panel);
+        border-bottom: 1px solid #374151;
+      }
+      label { display: flex; gap: 0.4rem; align-items: center; font-size: 0.9rem; }
+      select, input, button {
+        background: #111827;
+        color: var(--text);
+        border: 1px solid #4b5563;
+        border-radius: 0.35rem;
+        padding: 0.35rem 0.55rem;
+      }
+      button { cursor: pointer; }
+      button:hover { border-color: var(--accent); }
+      .stats, .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+      .legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
+      .swatch {
+        width: 0.85rem;
+        height: 0.85rem;
+        border-radius: 0.15rem;
+        display: inline-block;
+      }
+      .viewer {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1rem;
+      }
+      figure {
+        margin: 0;
+        background: var(--panel);
+        border: 1px solid #374151;
+        border-radius: 0.5rem;
+        overflow: hidden;
+      }
+      figcaption {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.85rem;
+        color: var(--muted);
+        border-bottom: 1px solid #374151;
+      }
+      figure img {
+        width: 100%;
+        display: block;
+        background: #000;
+        min-height: 160px;
+        object-fit: contain;
+      }
+      .crops {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+      }
+      .crop-card {
+        width: 180px;
+        background: var(--panel);
+        border: 1px solid #374151;
+        border-radius: 0.5rem;
+        overflow: hidden;
+      }
+      .crop-card img { width: 100%; display: block; background: #000; }
+      .crop-card .cap {
+        padding: 0.4rem 0.55rem;
+        font-size: 0.8rem;
+        color: var(--muted);
+      }
+      .missing { color: #fca5a5; font-style: italic; }
+      .notice { padding: 1rem; color: var(--muted); }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>PDI Seg Review Viewer</h1>
+      <p>Read-only review tool — outside the graded pipeline. Overlays rendered from calibration box metadata.</p>
+    </header>
+
+    <div class="toolbar">
+      <label>Class
+        <select id="classSelect"></select>
+      </label>
+      <button id="prevBtn" type="button">Previous</button>
+      <button id="nextBtn" type="button">Next</button>
+      <span id="framePos"></span>
+      <label>Min labels
+        <input id="minLabels" type="number" min="0" value="0" />
+      </label>
+      <label><input id="onlyRejected" type="checkbox" /> Only rejected</label>
+      <button id="applyFilters" type="button">Apply filters</button>
+    </div>
+
+    <div class="stats" id="stats"></div>
+    <div class="legend">
+      <span><i class="swatch" style="background: var(--rejected)"></i> Rejected candidate</span>
+      <span><i class="swatch" style="background: var(--kept)"></i> Kept cluster</span>
+      <span><i class="swatch" style="background: var(--label)"></i> Refined name label</span>
+    </div>
+
+    <div class="viewer">
+      <figure>
+        <figcaption>Source</figcaption>
+        <img id="sourceImg" alt="Source frame" />
+      </figure>
+      <figure>
+        <figcaption>Overlay</figcaption>
+        <img id="overlayImg" alt="Overlay frame" />
+      </figure>
+    </div>
+
+    <div class="crops" id="crops"></div>
+    <div class="notice" id="notice"></div>
+
+    <script>
+      const state = { classes: [], frames: [], index: 0, totals: null };
+
+      const els = {
+        classSelect: document.getElementById("classSelect"),
+        prevBtn: document.getElementById("prevBtn"),
+        nextBtn: document.getElementById("nextBtn"),
+        framePos: document.getElementById("framePos"),
+        minLabels: document.getElementById("minLabels"),
+        onlyRejected: document.getElementById("onlyRejected"),
+        applyFilters: document.getElementById("applyFilters"),
+        stats: document.getElementById("stats"),
+        sourceImg: document.getElementById("sourceImg"),
+        overlayImg: document.getElementById("overlayImg"),
+        crops: document.getElementById("crops"),
+        notice: document.getElementById("notice"),
+      };
+
+      async function loadClasses() {
+        const res = await fetch("/api/classes");
+        const data = await res.json();
+        state.classes = data.classes;
+        state.totals = data.totals;
+        els.classSelect.innerHTML = state.classes
+          .map((c) => `<option value="${c.name}">${c.name} (${c.frames} frames)</option>`)
+          .join("");
+        renderStats();
+        await loadFrames();
+      }
+
+      function renderStats() {
+        const selected = state.classes.find((c) => c.name === els.classSelect.value);
+        const total = state.totals;
+        const parts = [];
+        if (selected) {
+          parts.push(
+            `Class ${selected.name}: ${selected.frames} frames · ${selected.candidates} cand · ${selected.kept} kept · ${selected.labels} labels`
+          );
+        }
+        if (total) {
+          parts.push(
+            `Overall: ${total.frames} frames · ${total.candidates} cand · ${total.kept} kept · ${total.labels} labels`
+          );
+        }
+        els.stats.textContent = parts.join(" | ");
+      }
+
+      async function loadFrames() {
+        const params = new URLSearchParams({
+          class_name: els.classSelect.value,
+          min_labels: els.minLabels.value || "0",
+          only_rejected: els.onlyRejected.checked ? "true" : "false",
+        });
+        const res = await fetch(`/api/frames?${params}`);
+        const data = await res.json();
+        state.frames = data.frames;
+        state.index = 0;
+        renderStats();
+        renderFrame();
+      }
+
+      async function renderFrame() {
+        els.crops.innerHTML = "";
+        els.notice.textContent = "";
+        if (!state.frames.length) {
+          els.sourceImg.removeAttribute("src");
+          els.overlayImg.removeAttribute("src");
+          els.framePos.textContent = "0 / 0";
+          els.notice.textContent = "No frames match the current filters.";
+          return;
+        }
+        const frame = state.frames[state.index];
+        els.framePos.textContent = `${state.index + 1} / ${state.frames.length} · ${frame.stem}`;
+        if (frame.source_exists) {
+          els.sourceImg.src = `${frame.source_url}?t=${Date.now()}`;
+        } else {
+          els.sourceImg.removeAttribute("src");
+          els.notice.textContent = "Source image missing on disk.";
+        }
+        if (frame.overlay_url) {
+          els.overlayImg.src = `${frame.overlay_url}?t=${Date.now()}`;
+        } else {
+          els.overlayImg.removeAttribute("src");
+          els.notice.textContent += " Box metadata missing — overlay unavailable.";
+        }
+        const detail = await fetch(`/api/frame/${frame.class_name}/${frame.stem}`).then((r) => r.json());
+        detail.crops.forEach((crop) => {
+          const card = document.createElement("div");
+          card.className = "crop-card";
+          const img = document.createElement("img");
+          img.alt = `Crop ${crop.index}`;
+          img.src = `${crop.url}?t=${Date.now()}`;
+          img.onerror = () => {
+            img.remove();
+            card.insertAdjacentHTML("beforeend", `<div class="cap missing">Crop ${crop.index} unavailable</div>`);
+          };
+          card.appendChild(img);
+          card.insertAdjacentHTML(
+            "beforeend",
+            `<div class="cap">Label #${crop.index}${crop.from_disk ? "" : " (rendered)"}</div>`
+          );
+          els.crops.appendChild(card);
+        });
+      }
+
+      function step(delta) {
+        if (!state.frames.length) return;
+        state.index = (state.index + delta + state.frames.length) % state.frames.length;
+        renderFrame();
+      }
+
+      els.classSelect.addEventListener("change", loadFrames);
+      els.applyFilters.addEventListener("click", loadFrames);
+      els.prevBtn.addEventListener("click", () => step(-1));
+      els.nextBtn.addEventListener("click", () => step(1));
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "ArrowLeft") step(-1);
+        if (event.key === "ArrowRight") step(1);
+      });
+
+      loadClasses();
+    </script>
+  </body>
+</html>

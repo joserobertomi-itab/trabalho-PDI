@@ -15,8 +15,7 @@ from typing import cast
 import numpy as np
 from numpy.typing import NDArray
 
-# A bounding box in pixel coordinates: (x, y, width, height).
-BBox = tuple[int, int, int, int]
+from .imaging import BBox, crop
 
 
 @dataclass
@@ -180,9 +179,7 @@ def preprocess(image: NDArray[np.uint8]) -> NDArray[np.uint8]:
     return working
 
 
-def dump_preprocessed(
-    input_root: str | Path, output_dir: str | Path, limit: int = 5
-) -> list[Path]:
+def dump_preprocessed(input_root: str | Path, output_dir: str | Path, limit: int = 5) -> list[Path]:
     """Write the preprocessed version of the first ``limit`` frames for inspection."""
     import imageio.v3 as iio
 
@@ -194,11 +191,6 @@ def dump_preprocessed(
         iio.imwrite(dest, preprocess(iio.imread(source)))
         written.append(dest)
     return written
-
-
-def crop(image: NDArray[np.uint8], bbox: BBox) -> NDArray[np.uint8]:
-    x, y, w, h = bbox
-    return image[y : y + h, x : x + w]
 
 
 def output_path(

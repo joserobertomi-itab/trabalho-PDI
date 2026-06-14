@@ -8,35 +8,21 @@ detection algorithm never sees them (acceptance criterion of issue #6).
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
 
 import numpy as np
 from numpy.typing import NDArray
 
+from .imaging import FrameInspection, boxes_to_json, render_overlay
 from .pipeline import (
-    BBox,
     detect_clusters,
     find_source_images,
     keep_label_clusters,
     preprocess,
     refine_to_name_label,
 )
-
-
-@dataclass
-class FrameInspection:
-    """Per-stage detection breakdown for one frame (calibration view).
-
-    ``candidates`` are the raw Stage-1 clusters, ``kept`` are the Stage-3
-    geometric survivors, and ``labels`` are the Stage-2 refined name labels (the
-    production output). The funnel only narrows: candidates >= kept == labels.
-    """
-
-    candidates: list[BBox]
-    kept: list[BBox]
-    labels: list[BBox]
 
 
 def inspect_frame(image: NDArray[np.uint8]) -> FrameInspection:
@@ -53,53 +39,9 @@ def inspect_frame(image: NDArray[np.uint8]) -> FrameInspection:
     return FrameInspection(candidates=candidates, kept=kept, labels=labels)
 
 
-# Overlay colors per stage (RGB). Rejected candidates are drawn first so kept and
-# final boxes paint over them where they overlap.
-_REJECTED_COLOR = (220, 50, 50)  # red: Stage-1 candidates dropped by Stage 3
-_KEPT_COLOR = (240, 200, 40)  # yellow: Stage-3 survivors (cluster framing)
-_LABEL_COLOR = (40, 200, 80)  # green: Stage-2 refined name labels (the output)
-
-
-def _draw_box(rgb: NDArray[np.uint8], bbox: BBox, color: tuple[int, int, int]) -> None:
-    from skimage.draw import rectangle_perimeter
-
-    x, y, w, h = bbox
-    rr, cc = rectangle_perimeter((y, x), extent=(h, w), shape=rgb.shape[:2], clip=True)
-    rgb[rr, cc] = color
-
-
-def render_overlay(image: NDArray[np.uint8], inspection: FrameInspection) -> NDArray[np.uint8]:
-    """Draw an inspection's per-stage boxes on an RGB copy of the frame.
-
-    Red = Stage-1 candidates rejected by geometry, yellow = Stage-3 kept clusters,
-    green = Stage-2 refined name labels (the delivered output). A human reads the
-    overlay to judge detection vs false positives and lock the thresholds.
-    """
-    from skimage.color import gray2rgb
-    from skimage.util import img_as_ubyte
-
-    rgb = cast(
-        NDArray[np.uint8],
-        gray2rgb(img_as_ubyte(image)),  # type: ignore[no-untyped-call]
-    ).copy()
-    kept_set = set(inspection.kept)
-    for bbox in inspection.candidates:
-        if bbox not in kept_set:
-            _draw_box(rgb, bbox, _REJECTED_COLOR)
-    for bbox in inspection.kept:
-        _draw_box(rgb, bbox, _KEPT_COLOR)
-    for bbox in inspection.labels:
-        _draw_box(rgb, bbox, _LABEL_COLOR)
-    return rgb
-
-
 @dataclass
 class ClassStats:
-    """Per-class aggregate of the detection funnel over the calibrated base.
-
-    ``candidates``/``kept``/``labels`` sum each stage's box count across every
-    frame in the class, so a human can spot classes that over- or under-detect.
-    """
+    """Per-class aggregate of the detection funnel over the calibrated base."""
 
     class_name: str
     frames: int
@@ -111,24 +53,25 @@ class ClassStats:
 def calibrate(
     input_root: str | Path, output_dir: str | Path, per_class_limit: int = 3
 ) -> list[ClassStats]:
-    """Run the pipeline over the base, writing overlays and per-class stats.
-
-    For each class folder under ``input_root`` every frame is inspected and its
-    per-stage box counts are summed into a ``ClassStats``. Up to
-    ``per_class_limit`` overlay PNGs per class are written under
-    ``output_dir/<Class>/<stem>_overlay.png`` for human review. Folder names are
-    used only to group and label reports, never as algorithm input.
-    """
+    """Run the pipeline over the base, writing overlays, boxes.json, and stats."""
     import imageio.v3 as iio
 
+    input_root = Path(input_root)
     output_dir = Path(output_dir)
     totals: dict[str, dict[str, int]] = {}
     written_per_class: dict[str, int] = {}
+    boxes_by_source: dict[str, dict[str, list[list[int]]]] = {}
 
     for source in find_source_images(input_root):
         class_name = source.parent.name
         image = iio.imread(source)
         inspection = inspect_frame(image)
+        rel_path = source.relative_to(input_root).as_posix()
+        boxes_by_source[rel_path] = {
+            "candidates": boxes_to_json(inspection.candidates),
+            "kept": boxes_to_json(inspection.kept),
+            "labels": boxes_to_json(inspection.labels),
+        }
 
         acc = totals.setdefault(class_name, {"frames": 0, "candidates": 0, "kept": 0, "labels": 0})
         acc["frames"] += 1
@@ -153,6 +96,7 @@ def calibrate(
         for name, acc in sorted(totals.items())
     ]
     _write_stats_csv(output_dir / "stats.csv", stats)
+    _write_boxes_json(output_dir / "boxes.json", boxes_by_source)
     return stats
 
 
@@ -165,3 +109,8 @@ def _write_stats_csv(path: Path, stats: list[ClassStats]) -> None:
         writer.writerow(["class_name", "frames", "candidates", "kept", "labels"])
         for s in stats:
             writer.writerow([s.class_name, s.frames, s.candidates, s.kept, s.labels])
+
+
+def _write_boxes_json(path: Path, boxes_by_source: dict[str, dict[str, list[list[int]]]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(boxes_by_source, indent=2), encoding="utf-8")

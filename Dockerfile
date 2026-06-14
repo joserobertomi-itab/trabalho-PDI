@@ -24,7 +24,10 @@ LABEL org.opencontainers.image.title="pdiseg" \
       org.opencontainers.image.description="Poultry packaging name-label segmentation (classical PDI)" \
       org.opencontainers.image.source="https://github.com/ifg/pdiseg"
 
-RUN groupadd --gid 1000 pdiseg \
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends gosu \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 1000 pdiseg \
     && useradd --uid 1000 --gid pdiseg --create-home --shell /usr/sbin/nologin pdiseg
 
 WORKDIR /app
@@ -32,13 +35,20 @@ WORKDIR /app
 COPY --from=builder --chown=pdiseg:pdiseg /app/.venv /app/.venv
 COPY --chown=pdiseg:pdiseg pdiseg/ pdiseg/
 COPY --chown=pdiseg:pdiseg pyproject.toml README.md CONTEXT.md ./
+COPY scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONHASHSEED=random
+    PYTHONHASHSEED=random \
+    APP_USER=pdiseg \
+    APP_UID=1000 \
+    APP_GID=1000
 
-USER pdiseg
+# Entrypoint runs as root to fix bind-mount permissions, then gosu → pdiseg.
+USER root
 
-ENTRYPOINT ["pdiseg"]
-CMD ["/data/input", "/data/output"]
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+CMD ["pdiseg", "/data/input", "/data/output"]

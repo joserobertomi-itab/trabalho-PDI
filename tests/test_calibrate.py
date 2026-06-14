@@ -116,6 +116,23 @@ def test_calibrate_respects_per_class_overlay_limit(tmp_path):
     assert len(overlays) == 2
 
 
+def test_calibrate_writes_boxes_json_with_per_stage_boxes(tmp_path):
+    dataset = tmp_path / "dataset"
+    _write_frame_with_block(dataset / "ClassA" / "f1.png", with_block=True)
+
+    out = tmp_path / "calibration"
+    pdiseg.calibrate(dataset, out)
+
+    import json
+
+    payload = json.loads((out / "boxes.json").read_text(encoding="utf-8"))
+    assert "ClassA/f1.png" in payload
+    entry = payload["ClassA/f1.png"]
+    assert set(entry) == {"candidates", "kept", "labels"}
+    assert len(entry["labels"]) == len(entry["kept"])
+    assert len(entry["candidates"]) >= len(entry["kept"])
+
+
 def test_calibrate_writes_a_csv_stats_summary(tmp_path):
     dataset = tmp_path / "dataset"
     _write_frame_with_block(dataset / "ClassA" / "f1.png", with_block=True)
@@ -148,5 +165,6 @@ def test_calibrate_entry_point_runs_over_given_dirs(tmp_path):
     # No runpy re-import warning leaks to stderr.
     assert "RuntimeWarning" not in result.stderr
     assert (out / "stats.csv").exists()
+    assert (out / "boxes.json").exists()
     assert (out / "ClassA" / "f1_overlay.png").exists()
     assert "TOTAL" in result.stdout
