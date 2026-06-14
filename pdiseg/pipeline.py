@@ -7,10 +7,13 @@ The public interface is intentionally small. ``run`` is the deep orchestrator;
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 import numpy as np
+from numpy.typing import NDArray
 
 # A bounding box in pixel coordinates: (x, y, width, height).
 BBox = tuple[int, int, int, int]
@@ -27,14 +30,10 @@ class RunSummary:
 _IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png"}
 
 
-def find_source_images(input_root) -> list[Path]:
+def find_source_images(input_root: str | Path) -> list[Path]:
     """Every image file under ``input_root/<Class>/``, sorted for determinism."""
     root = Path(input_root)
-    images = [
-        p
-        for p in root.glob("*/*")
-        if p.is_file() and p.suffix.lower() in _IMAGE_SUFFIXES
-    ]
+    images = [p for p in root.glob("*/*") if p.is_file() and p.suffix.lower() in _IMAGE_SUFFIXES]
     return sorted(images)
 
 
@@ -43,7 +42,7 @@ def find_source_images(input_root) -> list[Path]:
 FPS_OVERLAY_REGION: BBox = (0, 0, 215, 48)
 
 
-def detect(image: np.ndarray) -> list[BBox]:
+def detect(image: NDArray[np.uint8]) -> list[BBox]:
     """Trivial placeholder: the whole frame as one box (replaced in later slices)."""
     height, width = image.shape[:2]
     return [(0, 0, width, height)]
@@ -59,7 +58,7 @@ _CLUSTER_CLOSE_STRUCTURE = np.ones((7, 15))  # merge text strokes into solid blo
 _CLUSTER_MIN_AREA = 800  # drop blobs smaller than this many pixels
 
 
-def detect_clusters(image: np.ndarray) -> list[BBox]:
+def detect_clusters(image: NDArray[np.uint8]) -> list[BBox]:
     """Locate label-cluster candidates via text density (docs/adr/0001, Stage 1).
 
     Highlight locally-bright text, close it into solid blocks, label connected
@@ -121,7 +120,7 @@ _REFINE_MIN_FRACTION = 0.05
 _REFINE_MAX_FRACTION = 0.9
 
 
-def refine_to_name_label(image: np.ndarray, cluster_bbox: BBox) -> BBox:
+def refine_to_name_label(image: NDArray[np.uint8], cluster_bbox: BBox) -> BBox:
     """Shrink a cluster to its dark name-label box (docs/adr/0001, Stage 2).
 
     Inside the cluster the bright brand badge and the dark name label are the two
@@ -138,7 +137,7 @@ def refine_to_name_label(image: np.ndarray, cluster_bbox: BBox) -> BBox:
     if region.size == 0 or region.max() == region.min():
         return cluster_bbox
 
-    dark = region <= threshold_otsu(region)
+    dark = region <= threshold_otsu(region)  # type: ignore[no-untyped-call]
     labels, count = label(dark)
     if count == 0:
         return cluster_bbox
@@ -162,14 +161,17 @@ def refine_to_name_label(image: np.ndarray, cluster_bbox: BBox) -> BBox:
     return (x + xs.start, y + ys.start, rw, rh)
 
 
-def preprocess(image: np.ndarray) -> np.ndarray:
+def preprocess(image: NDArray[np.uint8]) -> NDArray[np.uint8]:
     """Prepare a frame for detection: equalize contrast, then mask the FPS overlay."""
     from scipy.ndimage import median_filter
     from skimage.exposure import equalize_hist
     from skimage.util import img_as_ubyte
 
     working = median_filter(image, size=3)
-    working = img_as_ubyte(equalize_hist(working))
+    working = cast(
+        NDArray[np.uint8],
+        img_as_ubyte(equalize_hist(working)),  # type: ignore[no-untyped-call]
+    )
     # Fill the FPS overlay with the frame's median, not 0: a hard 0-edge against
     # bright neighbours reads as a spurious top-left cluster in Stage 1 (calibration
     # #6). A neutral fill leaves a flat region that produces no text-density response.
@@ -178,7 +180,9 @@ def preprocess(image: np.ndarray) -> np.ndarray:
     return working
 
 
-def dump_preprocessed(input_root, output_dir, limit: int = 5) -> list[Path]:
+def dump_preprocessed(
+    input_root: str | Path, output_dir: str | Path, limit: int = 5
+) -> list[Path]:
     """Write the preprocessed version of the first ``limit`` frames for inspection."""
     import imageio.v3 as iio
 
@@ -192,18 +196,20 @@ def dump_preprocessed(input_root, output_dir, limit: int = 5) -> list[Path]:
     return written
 
 
-def crop(image: np.ndarray, bbox: BBox) -> np.ndarray:
+def crop(image: NDArray[np.uint8], bbox: BBox) -> NDArray[np.uint8]:
     x, y, w, h = bbox
     return image[y : y + h, x : x + w]
 
 
-def output_path(output_root, class_name: str, source_path, index: int) -> Path:
+def output_path(
+    output_root: str | Path, class_name: str, source_path: str | Path, index: int
+) -> Path:
     """``<output_root>/<class_name>/<source-stem>_segmentada_<index>.png``."""
     stem = Path(source_path).stem
     return Path(output_root) / class_name / f"{stem}_segmentada_{index}.png"
 
 
-def detect_name_labels(image: np.ndarray) -> list[BBox]:
+def detect_name_labels(image: NDArray[np.uint8]) -> list[BBox]:
     """The two-stage detector (docs/adr/0001): a raw frame to its name labels.
 
     Self-contained: preprocesses the frame, locates label clusters (Stage 1),
@@ -219,7 +225,11 @@ def detect_name_labels(image: np.ndarray) -> list[BBox]:
     return [refine_to_name_label(working, cluster) for cluster in clusters]
 
 
-def run(input_root, output_root, detector=detect_name_labels) -> RunSummary:
+def run(
+    input_root: str | Path,
+    output_root: str | Path,
+    detector: Callable[[NDArray[np.uint8]], list[BBox]] = detect_name_labels,
+) -> RunSummary:
     """Walk the dataset, detect name labels, and write one PNG crop per detection.
 
     ``detector`` receives each original frame and returns boxes into it; crops are

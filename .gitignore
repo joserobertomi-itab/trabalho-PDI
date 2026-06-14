@@ -1,8 +1,26 @@
 data/
 .claude/settings.local.json
 .venv/
+.uv/
 resultado/
 calibration/
 __pycache__/
 .pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+coverage.xml
 *.egg-info/
+dist/
+build/
+
+# Editor / OS
+.DS_Store
+*.swp
+*.swo
+
+# Local env (never commit secrets)
+.env
+.env.*
+!.env.example

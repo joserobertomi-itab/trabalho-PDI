@@ -8,6 +8,7 @@ Kept in its own module (not imported by ``pdiseg/__init__``) so running it with
 from __future__ import annotations
 
 import argparse
+from typing import Literal
 
 from .calibrate import calibrate
 
@@ -39,16 +40,15 @@ def main(argv: list[str] | None = None) -> None:
     )
     args = parser.parse_args(argv)
 
-    stats = calibrate(
-        args.input_root, args.output_dir, per_class_limit=args.per_class_limit
-    )
+    stats = calibrate(args.input_root, args.output_dir, per_class_limit=args.per_class_limit)
 
     print(f"{'class_name':52} {'frames':>6} {'cand':>6} {'kept':>6} {'labels':>6}")
     for s in stats:
-        print(
-            f"{s.class_name:52} {s.frames:6} {s.candidates:6} {s.kept:6} {s.labels:6}"
-        )
-    total = lambda field: sum(getattr(s, field) for s in stats)
+        print(f"{s.class_name:52} {s.frames:6} {s.candidates:6} {s.kept:6} {s.labels:6}")
+
+    def total(field: Literal["frames", "candidates", "kept", "labels"]) -> int:
+        return sum(getattr(row, field) for row in stats)
+
     print(
         f"{'TOTAL':52} {total('frames'):6} {total('candidates'):6} "
         f"{total('kept'):6} {total('labels'):6}"

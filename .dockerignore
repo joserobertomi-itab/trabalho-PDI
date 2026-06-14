@@ -1,0 +1,37 @@
+# VCS and editor
+.git
+.gitignore
+.claude
+.claudeignore
+.cursor
+.vscode
+.idea
+
+# Python artifacts
+.venv
+.uv
+__pycache__
+*.py[cod]
+*.egg-info
+.pytest_cache
+.mypy_cache
+.ruff_cache
+htmlcov
+.coverage
+coverage.xml
+
+# Generated outputs (mounted at runtime)
+resultado
+calibration
+data
+
+# Dev-only
+.pre-commit-config.yaml
+.github
+tests
+docs/agents
+
+# Local env
+.env
+.env.*
+*.local

@@ -48,31 +48,89 @@ Only techniques from **Part 1** of the course are allowed:
 **Not allowed:** anything not yet covered in the course, and any library that
 performs segmentation automatically via AI.
 
-## Running
+## Prerequisites
 
-### Locally (Make)
+- [uv](https://docs.astral.sh/uv/) (recommended) or Python 3.12+
+- [Docker](https://docs.docker.com/) + Docker Compose (optional, for containerized runs)
 
-A `Makefile` wraps the common tasks (run `make help` to list them):
+## Running locally (uv + Make)
+
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then:
 
 ```sh
-make setup      # create .venv and install runtime + dev dependencies
-make test       # run the test suite
-make run        # segment the base into resultado/<Class>/<source>_segmentada_<N>.png
-make calibrate  # write per-class overlays + stats.csv into calibration/ for review
+make help       # list all tasks
+make setup      # uv sync --extra dev (locked deps from uv.lock)
+make check      # lint + typecheck + tests
+make run        # segment the base into resultado/
+make calibrate  # overlays + stats.csv into calibration/
 ```
 
-Override the paths on the command line, e.g. `make run DATA=dataset OUT=resultado`
-or `make calibrate CALIB=calibration LIMIT=5`. Both `resultado/` and `calibration/`
-are git-ignored. The underlying entry points are `python -m pdiseg [IN] [OUT]`
-(segmentation) and `python -m pdiseg.calibrate_cli [IN] [OUT]` (calibration).
+Override paths on the command line:
 
-### Delivery (issue #7)
+```sh
+make run DATA=dataset OUT=resultado
+make calibrate CALIB=calibration LIMIT=5
+```
 
-The frozen solution is delivered in one of two forms:
+Entry points (also available after `uv sync`):
 
-- **Google Colab** — open the notebook, mount/point it at `dataset/`, run all cells.
-- **Docker Compose** — `docker compose up`, reading from `dataset/` and writing to
-  `resultado/`.
+```sh
+uv run pdiseg [INPUT_ROOT] [OUTPUT_ROOT]
+uv run pdiseg-calibrate [INPUT_ROOT] [OUTPUT_DIR] [--per-class-limit N]
+python -m pdiseg [INPUT_ROOT] [OUTPUT_ROOT]
+python -m pdiseg.calibrate_cli [INPUT_ROOT] [OUTPUT_DIR]
+```
+
+## Running with Docker Compose
+
+Build once, then run segmentation or calibration with mounted volumes:
+
+```sh
+cp .env.example .env   # optional: customize DATA / OUT / CALIB
+make docker-build
+make docker-run        # writes to ./resultado
+make docker-calibrate  # writes to ./calibration
+```
+
+Or directly:
+
+```sh
+docker compose run --rm segment
+docker compose run --rm calibrate
+DATA=./dataset OUT=./resultado docker compose run --rm segment
+```
+
+The container runs as a non-root user (`pdiseg:1000`), with a read-only root
+filesystem; only the mounted output volumes are writable. The dataset mount is
+read-only.
+
+## Development workflow
+
+```sh
+make setup
+make format     # ruff format + auto-fix
+make lint       # ruff check
+make typecheck  # mypy (strict on pdiseg/)
+make test       # pytest with ≥80% coverage gate
+make ci         # full local gate (sync + check)
+```
+
+Optional pre-commit hooks:
+
+```sh
+uv run pre-commit install
+uv run pre-commit run --all-files
+```
+
+## CI
+
+GitHub Actions (`.github/workflows/ci.yml`) runs on every push/PR to `main`:
+
+1. `uv sync --frozen --extra dev`
+2. Ruff lint + format check
+3. Mypy
+4. Pytest with coverage
+5. Docker image build + entrypoint smoke test
 
 ## Evaluation
 
@@ -88,12 +146,17 @@ measure generalization.
 
 ```
 .
-├── CONTEXT.md          # domain glossary and language
+├── pdiseg/             # pipeline + calibration CLI
+├── tests/              # synthetic-dataset tests (public API only)
+├── pyproject.toml      # project metadata + tool config (source of truth)
+├── uv.lock             # locked dependency graph
+├── Dockerfile          # multi-stage production image (uv + non-root)
+├── docker-compose.yml  # segment + calibrate services
+├── CONTEXT.md          # domain glossary
 ├── requirements.md     # original assignment brief (Portuguese)
-├── docs/
-│   ├── adr/            # pipeline decisions (recorded during planning)
-│   └── agents/         # agent-skill configuration
-└── AGENTS.md           # contributor / agent instructions
+└── docs/
+    ├── adr/            # pipeline decisions
+    └── agents/         # agent-skill configuration
 ```
 
 ## Deliverables

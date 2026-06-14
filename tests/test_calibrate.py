@@ -64,9 +64,7 @@ def test_render_overlay_draws_colored_boxes_on_an_rgb_copy():
     assert overlay.shape == (120, 160, 3)
     # The overlay carries color the grayscale source could not: at least one pixel
     # has unequal channels (a drawn box edge), so it is not a plain gray copy.
-    channels_differ = (overlay[..., 0] != overlay[..., 1]) | (
-        overlay[..., 1] != overlay[..., 2]
-    )
+    channels_differ = (overlay[..., 0] != overlay[..., 1]) | (overlay[..., 1] != overlay[..., 2])
     assert channels_differ.any()
 
 

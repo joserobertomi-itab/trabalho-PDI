@@ -10,8 +10,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 import numpy as np
+from numpy.typing import NDArray
 
 from .pipeline import (
     BBox,
@@ -37,7 +39,7 @@ class FrameInspection:
     labels: list[BBox]
 
 
-def inspect_frame(image: np.ndarray) -> FrameInspection:
+def inspect_frame(image: NDArray[np.uint8]) -> FrameInspection:
     """Run the two-stage detector on a raw frame, keeping each stage's output.
 
     Mirrors ``detect_name_labels`` (same internal preprocessing, boxes index the
@@ -58,17 +60,15 @@ _KEPT_COLOR = (240, 200, 40)  # yellow: Stage-3 survivors (cluster framing)
 _LABEL_COLOR = (40, 200, 80)  # green: Stage-2 refined name labels (the output)
 
 
-def _draw_box(rgb: np.ndarray, bbox: BBox, color: tuple[int, int, int]) -> None:
+def _draw_box(rgb: NDArray[np.uint8], bbox: BBox, color: tuple[int, int, int]) -> None:
     from skimage.draw import rectangle_perimeter
 
     x, y, w, h = bbox
-    rr, cc = rectangle_perimeter(
-        (y, x), extent=(h, w), shape=rgb.shape[:2], clip=True
-    )
+    rr, cc = rectangle_perimeter((y, x), extent=(h, w), shape=rgb.shape[:2], clip=True)
     rgb[rr, cc] = color
 
 
-def render_overlay(image: np.ndarray, inspection: FrameInspection) -> np.ndarray:
+def render_overlay(image: NDArray[np.uint8], inspection: FrameInspection) -> NDArray[np.uint8]:
     """Draw an inspection's per-stage boxes on an RGB copy of the frame.
 
     Red = Stage-1 candidates rejected by geometry, yellow = Stage-3 kept clusters,
@@ -78,7 +78,10 @@ def render_overlay(image: np.ndarray, inspection: FrameInspection) -> np.ndarray
     from skimage.color import gray2rgb
     from skimage.util import img_as_ubyte
 
-    rgb = gray2rgb(img_as_ubyte(image)).copy()
+    rgb = cast(
+        NDArray[np.uint8],
+        gray2rgb(img_as_ubyte(image)),  # type: ignore[no-untyped-call]
+    ).copy()
     kept_set = set(inspection.kept)
     for bbox in inspection.candidates:
         if bbox not in kept_set:
@@ -105,7 +108,9 @@ class ClassStats:
     labels: int
 
 
-def calibrate(input_root, output_dir, per_class_limit: int = 3) -> list[ClassStats]:
+def calibrate(
+    input_root: str | Path, output_dir: str | Path, per_class_limit: int = 3
+) -> list[ClassStats]:
     """Run the pipeline over the base, writing overlays and per-class stats.
 
     For each class folder under ``input_root`` every frame is inspected and its
@@ -125,9 +130,7 @@ def calibrate(input_root, output_dir, per_class_limit: int = 3) -> list[ClassSta
         image = iio.imread(source)
         inspection = inspect_frame(image)
 
-        acc = totals.setdefault(
-            class_name, {"frames": 0, "candidates": 0, "kept": 0, "labels": 0}
-        )
+        acc = totals.setdefault(class_name, {"frames": 0, "candidates": 0, "kept": 0, "labels": 0})
         acc["frames"] += 1
         acc["candidates"] += len(inspection.candidates)
         acc["kept"] += len(inspection.kept)

@@ -1,3 +1,115 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pdiseg"
+version = "0.1.0"
+description = "Classical PDI pipeline for poultry packaging name-label segmentation (IFG)."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Proprietary" }
+authors = [{ name = "PDI Team" }]
+keywords = ["image-processing", "segmentation", "pdi"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Image Processing",
+]
+dependencies = [
+    "imageio>=2.37.3,<3",
+    "numpy>=2.4.6,<3",
+    "scikit-image>=0.26.0,<0.27",
+    "scipy>=1.17.1,<2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "matplotlib>=3.10.9,<4",
+    "mypy>=1.19.1",
+    "pre-commit>=4.5.1",
+    "pytest>=9.0.3,<10",
+    "pytest-cov>=7.0.0",
+    "ruff>=0.14.10",
+]
+
+[project.scripts]
+pdiseg = "pdiseg.__main__:main"
+pdiseg-calibrate = "pdiseg.calibrate_cli:main"
+
+[project.urls]
+Repository = "https://github.com/ifg/pdiseg"
+Documentation = "https://github.com/ifg/pdiseg#readme"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pdiseg"]
+
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+addopts = ["--strict-markers", "--strict-config", "-ra"]
+filterwarnings = [
+    "error::DeprecationWarning",
+    "error::PendingDeprecationWarning",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["pdiseg"]
+omit = ["tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 80
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["pdiseg", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "W",
+    "F",
+    "I",
+    "B",
+    "UP",
+    "SIM",
+    "RUF",
+]
+ignore = [
+    "E501",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["pdiseg"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+warn_unused_ignores = true
+show_error_codes = true
+packages = ["pdiseg"]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = [
+    "imageio.*",
+    "skimage.*",
+    "scipy.*",
+]
+ignore_missing_imports = true
+disable_error_code = ["no-untyped-call"]

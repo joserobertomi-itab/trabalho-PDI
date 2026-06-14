@@ -1,0 +1,44 @@
+# Frozen segmentation pipeline — mount dataset read-only, write crops to resultado/.
+#
+#   docker compose run --rm segment
+#   docker compose run --rm calibrate
+#
+# Override paths:
+#   DATA=./dataset OUT=./resultado docker compose run --rm segment
+
+services:
+  segment:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: pdiseg:latest
+    entrypoint: ["pdiseg"]
+    command: ["/data/input", "/data/output"]
+    volumes:
+      - ${DATA:-./data/Train_and_Validation}:/data/input:ro
+      - ${OUT:-./resultado}:/data/output
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M,mode=1777
+
+  calibrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: pdiseg:latest
+    entrypoint: ["pdiseg-calibrate"]
+    command:
+      - /data/input
+      - /data/calibration
+      - --per-class-limit
+      - "${LIMIT:-3}"
+    volumes:
+      - ${DATA:-./data/Train_and_Validation}:/data/input:ro
+      - ${CALIB:-./calibration}:/data/calibration
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M,mode=1777
