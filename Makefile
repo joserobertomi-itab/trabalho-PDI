@@ -1,10 +1,10 @@
 # Poultry-packaging name-label segmentation — local tasks (uv-backed).
-# Override paths on the command line, e.g.: make run DATA=dataset OUT=resultado
+# Override paths on the command line, e.g.: make run DATA=dataset OUT=result
 
 UV      ?= uv
 PY      := $(UV) run
 DATA    ?= data/Train_and_Validation
-OUT     ?= resultado
+OUT     ?= result
 CALIB   ?= calibration
 LIMIT   ?= 3
 PORT    ?= 8765
@@ -51,19 +51,19 @@ calibrate:  ## Run calibration harness: overlays + boxes.json + stats.csv into $
 	$(PY) pdiseg-calibrate $(DATA) $(CALIB) --per-class-limit $(LIMIT)
 
 review:  ## Launch the read-only review viewer on http://127.0.0.1:$(PORT)/
-	$(PY) pdiseg-review --dataset $(DATA) --calibration $(CALIB) --resultado $(OUT) --port $(PORT)
+	$(PY) pdiseg-review --dataset $(DATA) --calibration $(CALIB) --result $(OUT) --port $(PORT)
 
 docker-build:  ## Build the production Docker image (pipeline + tools)
 	$(COMPOSE) build pipeline
 
-docker-up: docker-build  ## Submission path: docker compose up (DATA → resultado/)
-	DATA=./$(DATA) OUT=./resultado $(COMPOSE) up --build pipeline
+docker-up: docker-build  ## Submission path: docker compose up (DATA → result/)
+	DATA=./$(DATA) OUT=./$(OUT) $(COMPOSE) up --build pipeline
 
 docker-calibrate: docker-build  ## Write calibration/ via Docker (boxes.json + stats)
 	DATA=./$(DATA) $(COMPOSE) --profile tools run --rm calibrate
 
 docker-review: docker-build  ## Run the review viewer in Docker on port $(PORT)
-	DATA=./$(DATA) OUT=./resultado CALIB=./calibration PORT=$(PORT) \
+	DATA=./$(DATA) OUT=./$(OUT) CALIB=./calibration PORT=$(PORT) \
 		$(COMPOSE) --profile tools up review
 
 docker-smoke:  ## E2E Docker Compose smoke test (synthetic dataset/)

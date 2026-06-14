@@ -24,8 +24,8 @@ def main(argv: list[str] | None = None) -> None:
         help="Calibration bundle containing boxes.json and stats.csv.",
     )
     parser.add_argument(
-        "--resultado",
-        default="resultado",
+        "--result",
+        default="result",
         help="Optional segmentation output with *_segmentada_N.png crops.",
     )
     parser.add_argument("--host", default="127.0.0.1", help="Bind address.")
@@ -37,11 +37,11 @@ def main(argv: list[str] | None = None) -> None:
     from pdiseg.review.model import load_bundle
     from pdiseg.review.server import create_app
 
-    bundle = load_bundle(args.dataset, args.calibration, args.resultado)
+    bundle = load_bundle(args.dataset, args.calibration, args.result)
     app = create_app(bundle)
     print(
         f"Review viewer at http://{args.host}:{args.port}/ "
-        f"(dataset={args.dataset}, calibration={args.calibration}, resultado={args.resultado})"
+        f"(dataset={args.dataset}, calibration={args.calibration}, result={args.result})"
     )
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
 

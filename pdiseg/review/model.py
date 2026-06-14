@@ -18,7 +18,7 @@ _SEGMENTED_RE = re.compile(r"^(?P<stem>.+)_segmentada_(?P<index>\d+)$")
 class ReviewBundle:
     dataset_root: Path
     calibration_root: Path
-    resultado_root: Path | None = None
+    result_root: Path | None = None
     boxes: dict[str, dict[str, list[list[int]]]] = field(default_factory=dict)
     stats_by_class: dict[str, dict[str, int]] = field(default_factory=dict)
 
@@ -57,11 +57,11 @@ class TotalsSummary:
 def load_bundle(
     dataset_root: str | Path,
     calibration_root: str | Path,
-    resultado_root: str | Path | None = None,
+    result_root: str | Path | None = None,
 ) -> ReviewBundle:
     dataset_root = Path(dataset_root)
     calibration_root = Path(calibration_root)
-    resultado = Path(resultado_root) if resultado_root is not None else None
+    result = Path(result_root) if result_root is not None else None
 
     boxes: dict[str, dict[str, list[list[int]]]] = {}
     boxes_path = calibration_root / "boxes.json"
@@ -74,7 +74,7 @@ def load_bundle(
     return ReviewBundle(
         dataset_root=dataset_root,
         calibration_root=calibration_root,
-        resultado_root=resultado,
+        result_root=result,
         boxes=boxes,
         stats_by_class=stats_by_class,
     )
@@ -159,10 +159,10 @@ def _discover_classes(bundle: ReviewBundle) -> list[str]:
             for p in bundle.dataset_root.iterdir()
             if p.is_dir() and not p.name.startswith(".")
         )
-    if bundle.resultado_root and bundle.resultado_root.is_dir():
+    if bundle.result_root and bundle.result_root.is_dir():
         names.update(
             p.name
-            for p in bundle.resultado_root.iterdir()
+            for p in bundle.result_root.iterdir()
             if p.is_dir() and not p.name.startswith(".")
         )
     return sorted(names)
@@ -175,12 +175,12 @@ def _frame_keys(bundle: ReviewBundle, class_name: str) -> set[str]:
         for path in class_dataset.iterdir():
             if path.is_file() and path.suffix.lower() in _IMAGE_SUFFIXES:
                 keys.add(f"{class_name}/{path.name}")
-    if bundle.resultado_root is None:
+    if bundle.result_root is None:
         return keys
-    class_resultado = bundle.resultado_root / class_name
-    if not class_resultado.is_dir():
+    class_result = bundle.result_root / class_name
+    if not class_result.is_dir():
         return keys
-    for path in class_resultado.glob("*_segmentada_*.png"):
+    for path in class_result.glob("*_segmentada_*.png"):
         match = _SEGMENTED_RE.match(path.stem)
         if match is None:
             continue
@@ -227,9 +227,9 @@ def _source_exists(bundle: ReviewBundle, rel_path: str) -> bool:
 
 
 def _crop_paths(bundle: ReviewBundle, class_name: str, stem: str) -> list[Path]:
-    if bundle.resultado_root is None:
+    if bundle.result_root is None:
         return []
-    class_dir = bundle.resultado_root / class_name
+    class_dir = bundle.result_root / class_name
     if not class_dir.is_dir():
         return []
 

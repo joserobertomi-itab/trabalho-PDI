@@ -64,8 +64,10 @@ dataset/
 
 ### Saída
 
+> **Nota:** neste repositório a pasta de saída foi padronizada como `result/` (inglês).
+
 ```
-resultado/
+result/
 ├── Peito_Congelado/
 │   ├── img001_segmentada_1.png
 │   ├── img001_segmentada_2.png

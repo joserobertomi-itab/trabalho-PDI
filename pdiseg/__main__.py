@@ -21,7 +21,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "output_root",
         nargs="?",
-        default="resultado",
+        default="result",
         help="Where to write <Class>/<source>_segmentada_<N>.png crops.",
     )
     args = parser.parse_args(argv)

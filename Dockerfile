@@ -25,7 +25,7 @@ LABEL org.opencontainers.image.title="pdiseg" \
       org.opencontainers.image.source="https://github.com/ifg/pdiseg"
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends gosu \
+    && apt-get install -y --no-install-recommends gosu util-linux \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 1000 pdiseg \
     && useradd --uid 1000 --gid pdiseg --create-home --shell /usr/sbin/nologin pdiseg
@@ -45,7 +45,12 @@ ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONHASHSEED=random \
     APP_USER=pdiseg \
     APP_UID=1000 \
-    APP_GID=1000
+    APP_GID=1000 \
+    OMP_NUM_THREADS=1 \
+    OPENBLAS_NUM_THREADS=1 \
+    MKL_NUM_THREADS=1 \
+    NUMEXPR_NUM_THREADS=1 \
+    VECLIB_MAXIMUM_THREADS=1
 
 # Entrypoint runs as root to fix bind-mount permissions, then gosu → pdiseg.
 USER root

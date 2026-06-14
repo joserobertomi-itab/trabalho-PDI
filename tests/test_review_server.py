@@ -35,15 +35,15 @@ def _write_bundle(tmp_path: Path) -> tuple[Path, Path, Path]:
         "class_name,frames,candidates,kept,labels\nClassA,1,1,1,1\n",
         encoding="utf-8",
     )
-    resultado = tmp_path / "resultado" / "ClassA"
-    resultado.mkdir(parents=True)
-    iio.imwrite(resultado / "f1_segmentada_1.png", frame[10:50, 10:50])
-    return dataset, calibration, tmp_path / "resultado"
+    class_result = tmp_path / "result" / "ClassA"
+    class_result.mkdir(parents=True)
+    iio.imwrite(class_result / "f1_segmentada_1.png", frame[10:50, 10:50])
+    return dataset, calibration, tmp_path / "result"
 
 
 def test_review_api_and_media_endpoints(tmp_path):
-    dataset, calibration, resultado = _write_bundle(tmp_path)
-    app = create_app(load_bundle(dataset, calibration, resultado))
+    dataset, calibration, result = _write_bundle(tmp_path)
+    app = create_app(load_bundle(dataset, calibration, result))
     client = TestClient(app)
 
     index = client.get("/")
@@ -69,8 +69,8 @@ def test_review_api_and_media_endpoints(tmp_path):
 
 
 def test_review_returns_404_for_unknown_frame(tmp_path):
-    dataset, calibration, resultado = _write_bundle(tmp_path)
-    app = create_app(load_bundle(dataset, calibration, resultado))
+    dataset, calibration, result = _write_bundle(tmp_path)
+    app = create_app(load_bundle(dataset, calibration, result))
     client = TestClient(app)
 
     missing = client.get("/api/frame/ClassA/missing")
@@ -80,7 +80,7 @@ def test_review_returns_404_for_unknown_frame(tmp_path):
     assert overlay.status_code == 404
 
 
-def test_review_renders_crop_from_boxes_when_resultado_crop_missing(tmp_path):
+def test_review_renders_crop_from_boxes_when_result_crop_missing(tmp_path):
     dataset = tmp_path / "dataset"
     class_dir = dataset / "ClassA"
     class_dir.mkdir(parents=True)

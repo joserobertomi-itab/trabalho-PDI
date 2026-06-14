@@ -52,4 +52,4 @@ Lock the thresholds at **recall-favoring** values rather than chase precision:
   Revisit only with a genuinely more discriminative signal (e.g. anchoring on the solid
   "SUPER FRANGO" brand badge), which is out of scope for the classical-techniques brief.
 - The calibration artifacts (per-class overlays + `stats.csv`) are review-only and are
-  written outside the repo; they are not part of the delivered `resultado/`.
+  written outside the repo; they are not part of the delivered `result/`.

@@ -29,7 +29,7 @@ def test_run_mirrors_classes_and_writes_a_valid_crop_per_source(tmp_path):
         for name in files:
             _write_gray(dataset / klass / name)
 
-    out = tmp_path / "resultado"
+    out = tmp_path / "result"
     pdiseg.run(dataset, out, detector=pdiseg.detect)  # trivial detector: orchestration only
 
     for klass, files in sources.items():
@@ -49,7 +49,7 @@ def test_multiple_detections_are_numbered_from_one(tmp_path):
     def two_boxes(image):
         return [(0, 0, 10, 20), (10, 0, 10, 20)]
 
-    out = tmp_path / "resultado"
+    out = tmp_path / "result"
     pdiseg.run(dataset, out, detector=two_boxes)
 
     assert (out / "Moela" / "img003_segmentada_1.png").exists()
@@ -68,7 +68,7 @@ def test_run_crops_from_the_original_frame(tmp_path):
     def box_detector(image):
         return [(2, 2, 5, 5)]  # a sub-region of the frame
 
-    out = tmp_path / "resultado"
+    out = tmp_path / "result"
     pdiseg.run(dataset, out, detector=box_detector)
 
     written = iio.imread(out / "ClassA" / "img001_segmentada_1.png")
@@ -278,7 +278,7 @@ def test_module_entry_point_runs_over_given_dirs(tmp_path):
     frame = _gradient_frame(200, 400)
     _draw_text_block(frame, 250, 80, 390, 150)  # a detectable cluster, clear of FPS region
     iio.imwrite(src, frame)
-    out = tmp_path / "resultado"
+    out = tmp_path / "result"
 
     result = subprocess.run(
         [sys.executable, "-m", "pdiseg", str(dataset), str(out)],

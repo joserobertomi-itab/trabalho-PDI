@@ -65,9 +65,9 @@ def test_list_frames_supports_min_labels_and_only_rejected_filters(tmp_path):
     _write_frame(dataset / "ClassA" / "f1.png")
     _write_frame(dataset / "ClassA" / "f2.png")
     calibration = tmp_path / "calibration"
-    calibration.mkdir()
     import json
 
+    calibration.mkdir()
     (calibration / "boxes.json").write_text(
         json.dumps(
             {
@@ -91,15 +91,15 @@ def test_list_frames_supports_min_labels_and_only_rejected_filters(tmp_path):
     assert list_frames(bundle, "ClassA", only_rejected=True)[0].stem == "f1"
 
 
-def test_get_frame_finds_crops_from_resultado_when_boxes_missing(tmp_path):
+def test_get_frame_finds_crops_from_result_when_boxes_missing(tmp_path):
     dataset = tmp_path / "dataset"
     _write_frame(dataset / "ClassA" / "f1.png")
-    resultado_root = tmp_path / "resultado"
-    class_resultado = resultado_root / "ClassA"
-    class_resultado.mkdir(parents=True)
-    iio.imwrite(class_resultado / "f1_segmentada_1.png", np.full((8, 8), 200, dtype=np.uint8))
+    result_root = tmp_path / "result"
+    class_result = result_root / "ClassA"
+    class_result.mkdir(parents=True)
+    iio.imwrite(class_result / "f1_segmentada_1.png", np.full((8, 8), 200, dtype=np.uint8))
 
-    bundle = load_bundle(dataset, tmp_path / "calibration", resultado_root)
+    bundle = load_bundle(dataset, tmp_path / "calibration", result_root)
     frame = get_frame(bundle, "ClassA", "f1")
     assert frame is not None
     assert len(frame.crop_paths) == 1

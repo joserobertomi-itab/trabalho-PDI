@@ -2,7 +2,7 @@ data/
 .claude/settings.local.json
 .venv/
 .uv/
-resultado/
+result/
 calibration/
 .docker-smoke/
 __pycache__/

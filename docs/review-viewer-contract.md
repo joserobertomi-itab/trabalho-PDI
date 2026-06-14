@@ -9,7 +9,7 @@ detection; it renders overlays and crops from artifacts already on disk.
 |------|----------|----------|
 | `dataset/` (or `--dataset`) | Yes | Source frames: `dataset/<Class>/<image>.jpg` |
 | `calibration/` (or `--calibration`) | Yes | `boxes.json`, `stats.csv`, optional sample `*_overlay.png` |
-| `resultado/` (or `--resultado`) | No | Segmentation crops: `resultado/<Class>/<stem>_segmentada_<N>.png` |
+| `result/` (or `--result`) | No | Segmentation crops: `result/<Class>/<stem>_segmentada_<N>.png` |
 
 Generate `boxes.json` and `stats.csv` with:
 
@@ -18,11 +18,11 @@ make calibrate
 # or: uv run pdiseg-calibrate data/Train_and_Validation calibration
 ```
 
-Generate `resultado/` with:
+Generate `result/` with:
 
 ```sh
 make run
-# or: uv run pdiseg data/Train_and_Validation resultado
+# or: uv run pdiseg data/Train_and_Validation result
 ```
 
 ## `boxes.json` shape
@@ -51,7 +51,7 @@ make review
 uv run pdiseg-review \
   --dataset data/Train_and_Validation \
   --calibration calibration \
-  --resultado resultado \
+  --result result \
   --port 8765
 ```
 
@@ -60,5 +60,5 @@ Open `http://127.0.0.1:8765/`.
 ## Degraded modes
 
 - Missing `boxes.json` entry for a frame → source and disk crops still shown; overlay skipped.
-- Missing `resultado/` crop → crop rendered on the fly from the green label box when metadata exists.
+- Missing `result/` crop → crop rendered on the fly from the green label box when metadata exists.
 - Missing source image → frame listed with a notice; other artifacts still shown when available.

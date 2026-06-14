@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # End-to-end smoke test for the Docker Compose delivery path.
-# Creates a tiny synthetic dataset/, runs the pipeline container, asserts resultado/.
+# Creates a tiny synthetic dataset/, runs the pipeline container, asserts result/.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 DATA_DIR="$ROOT/.docker-smoke/dataset"
-OUT_DIR="$ROOT/.docker-smoke/resultado"
+OUT_DIR="$ROOT/.docker-smoke/result"
 CALIB_DIR="$ROOT/.docker-smoke/calibration"
 
 rm -rf "$ROOT/.docker-smoke"

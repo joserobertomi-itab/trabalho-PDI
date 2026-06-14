@@ -16,4 +16,5 @@ def test_review_cli_help_exits_zero():
     )
     assert result.returncode == 0
     assert "Read-only web viewer" in result.stdout
+    assert "--result" in result.stdout
     assert "--calibration" in result.stdout

@@ -42,7 +42,7 @@ but recognizing the text is out of scope.
   with a burned-in "FPS: NN.NN" overlay in the top-left corner. Captured by a fixed
   industrial camera at a fixed position; the unseen evaluation set uses the same
   rig and the same resolution.
-- **Segmented image** — an output crop under `resultado/<Class>/`, one per detected
+- **Segmented image** — an output crop under `result/<Class>/`, one per detected
   **name label** (`<source>_segmentada_<N>.png`).
 - **False positive** — an output image that does **not** contain the product name,
   or contains an irrelevant name (e.g. just "frango"). False positives are scored
@@ -57,7 +57,7 @@ but recognizing the text is out of scope.
   for every frame from `calibration/boxes.json`, not only the sampled PNGs.
 - **Review viewer** — a standalone, read-only web tool (`pdiseg-review`) that
   sits outside the graded pipeline. It reads source images, `calibration/boxes.json`,
-  optional `stats.csv`, and optional `resultado/` crops to present source, overlay,
+  optional `stats.csv`, and optional `result/` crops to present source, overlay,
   and segmented images side by side for manual QA and presentation demos.
 
 ## Industrial-image challenges
@@ -90,7 +90,7 @@ Coxas e Sobrecoxas Resfriado Selado
 ## I/O structure
 
 ```
-dataset/                          resultado/
+dataset/                          result/
 ├── Peito_Congelado/              ├── Peito_Congelado/
 │   ├── img001.jpg                │   ├── img001_segmentada_1.png
 │   └── ...                       │   ├── img001_segmentada_2.png
@@ -101,7 +101,7 @@ dataset/                          resultado/
 
 The program walks **every image in every folder** of `dataset/`, detects the
 package region(s), and writes one or more `*_segmentada_N.png` crops per source
-image under the matching `resultado/<Class>/` folder.
+image under the matching `result/<Class>/` folder.
 
 ## Constraints (technique scope)
 

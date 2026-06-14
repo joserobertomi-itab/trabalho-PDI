@@ -12,7 +12,7 @@ and no OCR. See [requirements.md](./requirements.md) for the original brief and
 
 The program walks every image in every folder under `dataset/`, detects the
 package region(s) in each image, and writes one or more cropped images containing
-only the segmented packaging to a matching folder under `resultado/`.
+only the segmented packaging to a matching folder under `result/`.
 
 A crop is correct when it sits where the product name is expected — the text does
 not need to be legible. A crop **without** the product name (or with an irrelevant
@@ -21,7 +21,7 @@ one, e.g. just "frango") counts as a false positive and is scored as an error.
 ## I/O layout
 
 ```
-dataset/                          resultado/
+dataset/                          result/
 ├── Peito_Congelado/              ├── Peito_Congelado/
 │   ├── img001.jpg                │   ├── img001_segmentada_1.png
 │   └── ...                       │   ├── img001_segmentada_2.png
@@ -61,7 +61,7 @@ Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then:
 make help       # list all tasks
 make setup      # uv sync --extra dev (locked deps from uv.lock)
 make check      # lint + typecheck + tests
-make run        # segment the base into resultado/
+make run        # segment the base into result/
 make calibrate  # overlays + boxes.json + stats.csv into calibration/
 make review     # open http://127.0.0.1:8765/ (read-only review viewer)
 ```
@@ -70,7 +70,7 @@ Full review workflow:
 
 ```sh
 make setup
-make run        # writes resultado/<Class>/*_segmentada_N.png
+make run        # writes result/<Class>/*_segmentada_N.png
 make calibrate  # writes calibration/boxes.json (all frames) + stats.csv
 make review     # browser: source | overlay | crops side by side
 ```
@@ -81,7 +81,7 @@ runs detection. See [docs/review-viewer-contract.md](./docs/review-viewer-contra
 Override paths on the command line:
 
 ```sh
-make run DATA=dataset OUT=resultado
+make run DATA=dataset OUT=result
 make calibrate CALIB=calibration LIMIT=5
 ```
 
@@ -90,7 +90,7 @@ Entry points (also available after `uv sync`):
 ```sh
 uv run pdiseg [INPUT_ROOT] [OUTPUT_ROOT]
 uv run pdiseg-calibrate [INPUT_ROOT] [OUTPUT_DIR] [--per-class-limit N]
-uv run pdiseg-review --dataset DATA --calibration CALIB --resultado OUT [--port 8765]
+uv run pdiseg-review --dataset DATA --calibration CALIB --result OUT [--port 8765]
 python -m pdiseg [INPUT_ROOT] [OUTPUT_ROOT]
 python -m pdiseg.calibrate_cli [INPUT_ROOT] [OUTPUT_DIR]
 ```
@@ -98,11 +98,11 @@ python -m pdiseg.calibrate_cli [INPUT_ROOT] [OUTPUT_DIR]
 ## Running with Docker Compose
 
 **Submission path (issue #7):** `docker compose up --build` segments `dataset/` into
-`resultado/`. See [docs/docker-compose.md](./docs/docker-compose.md) for the full
+`result/`. See [docs/docker-compose.md](./docs/docker-compose.md) for the full
 reference.
 
 ```sh
-mkdir -p resultado calibration
+mkdir -p result calibration
 docker compose up --build                   # or: make docker-up
 ```
 

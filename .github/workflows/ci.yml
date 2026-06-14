@@ -60,5 +60,5 @@ jobs:
           docker compose run --rm --entrypoint pdiseg-review pipeline --help
           docker compose run --rm --entrypoint /usr/local/bin/docker-entrypoint.sh pipeline pdiseg --help
 
-      - name: End-to-end Compose smoke (dataset/ → resultado/)
+      - name: End-to-end Compose smoke (dataset/ → result/)
         run: bash scripts/docker-smoke.sh
