@@ -42,26 +42,125 @@ _CLUSTER_CLOSE_STRUCTURE = np.ones((7, 15))
 _CLUSTER_MIN_AREA = 800
 
 
-def detect_clusters(image: NDArray[np.uint8]) -> list[BBox]:
+def text_mask(
+    image: NDArray[np.uint8],
+    *,
+    window: int = _CLUSTER_LOCAL_WINDOW,
+    offset: int = _CLUSTER_TEXT_OFFSET,
+) -> NDArray[np.bool_]:
+    """Stage-1 primitive (ADR 0001): pixels brighter than their local mean by ``offset``.
 
-    from scipy.ndimage import binary_closing, find_objects, label, uniform_filter
+    A box filter estimates the local background; a stroke reads as text where it sits
+    ``offset`` grey levels above it. Captures letter edges, not solid interiors.
+    """
+    from scipy.ndimage import uniform_filter
 
     img = image.astype(np.float32)
-    local = uniform_filter(img, size=_CLUSTER_LOCAL_WINDOW)
-    text = img > local + _CLUSTER_TEXT_OFFSET
-    merged = binary_closing(text, structure=_CLUSTER_CLOSE_STRUCTURE)
+    local = uniform_filter(img, size=window)
+    return cast(NDArray[np.bool_], img > local + offset)
 
-    labels, _ = label(merged)
+
+def close_mask(
+    mask: NDArray[np.bool_], *, structure: NDArray[np.float64] = _CLUSTER_CLOSE_STRUCTURE
+) -> NDArray[np.bool_]:
+    """Stage-1 primitive (ADR 0001/0004): close text strokes into solid blocks.
+
+    The structure stays small (``7x15``) on purpose: a wider closing collapses a whole
+    crate of packages into one blob (ADR 0004).
+    """
+    from scipy.ndimage import binary_closing
+
+    return cast(NDArray[np.bool_], binary_closing(mask, structure=structure))
+
+
+def label_components(mask: NDArray[np.bool_]) -> NDArray[np.int32]:
+    """Stage-1 primitive: label connected components (background 0, each blob a + int).
+
+    Returned as a raster so the debug notebook can render the blobs the grader sees.
+    """
+    from scipy.ndimage import label
+
+    labels, _ = label(mask)
+    return cast(NDArray[np.int32], labels)
+
+
+def boxes_from_components(
+    labels: NDArray[np.int32], *, min_area: int = _CLUSTER_MIN_AREA
+) -> list[BBox]:
+    """Stage-1 primitive: bounding box of every component with at least ``min_area`` px.
+
+    Area is the component's true pixel count (its strokes), not its bounding box.
+    """
+    from scipy.ndimage import find_objects
+
     boxes: list[BBox] = []
     for index, slc in enumerate(find_objects(labels), start=1):
         if slc is None:
             continue
         area = int((labels[slc] == index).sum())
-        if area < _CLUSTER_MIN_AREA:
+        if area < min_area:
             continue
         ys, xs = slc
         boxes.append((xs.start, ys.start, xs.stop - xs.start, ys.stop - ys.start))
     return boxes
+
+
+def detect_clusters(image: NDArray[np.uint8]) -> list[BBox]:
+    """Stage 1, text-density variant (ADR 0001): a recall net composing the
+    text-density primitives (ADR 0005).
+
+    Kept for contrast/inspection only. On glare-heavy frames it merges the whole
+    crate into one blob (text fires on ~20% of pixels) — see ADR 0006. The graded
+    Stage 1 is moving to ``detect_dark_badges``.
+    """
+    return boxes_from_components(label_components(close_mask(text_mask(image))))
+
+
+# Stage-1 dark-badge variant (ADR 0006). The name label is bright text on a *dark*
+# rounded-rectangle badge; the plastic glare is bright-on-bright. So darkness, not
+# text density, discriminates the label from the glare. The threshold is a
+# percentile, which is invariant to the monotonic ``equalize_hist`` in preprocess —
+# so it runs on the existing preprocessed frame without a second preprocessing path.
+_DARK_PERCENTILE = 20  # provisional; lock against the ground-truth boxes
+_DARK_OPEN_STRUCTURE = np.ones((3, 3))  # drop glare specks before solidifying
+_DARK_CLOSE_STRUCTURE = np.ones((9, 9))  # close the badge (bright text leaves holes)
+
+
+def dark_mask(
+    image: NDArray[np.uint8], *, percentile: float = _DARK_PERCENTILE
+) -> NDArray[np.bool_]:
+    """Stage-1 primitive (ADR 0006): the darkest ``percentile``% of pixels.
+
+    A percentile threshold (not a fixed grey level) adapts to each frame and is
+    invariant to the monotonic histogram equalisation in ``preprocess``.
+    """
+    threshold = np.percentile(image, percentile)
+    return image < threshold
+
+
+def open_mask(
+    mask: NDArray[np.bool_], *, structure: NDArray[np.float64] = _DARK_OPEN_STRUCTURE
+) -> NDArray[np.bool_]:
+    """Stage-1 primitive (ADR 0006): morphological opening to drop tiny dark specks."""
+    from scipy.ndimage import binary_opening
+
+    return cast(NDArray[np.bool_], binary_opening(mask, structure=structure))
+
+
+def detect_dark_badges(
+    image: NDArray[np.uint8], *, percentile: float = _DARK_PERCENTILE
+) -> list[BBox]:
+    """Stage 1, dark-badge variant (ADR 0006): a recall net keyed on dark badges.
+
+    Threshold the darkest pixels, open away glare specks, close each badge solid,
+    then bound the components. Over-detection is expected; rejection is Stage 3's
+    job. Composes the Stage-1 primitives (ADR 0005) so the notebook renders the
+    same code the grader runs.
+    """
+    mask = dark_mask(image, percentile=percentile)
+    mask = open_mask(mask)
+    mask = close_mask(mask, structure=_DARK_CLOSE_STRUCTURE)
+    return boxes_from_components(label_components(mask))
 
 
 _LABEL_MIN_AREA = 3000
@@ -84,21 +183,31 @@ _REFINE_MIN_FRACTION = 0.05
 _REFINE_MAX_FRACTION = 0.9
 
 
-def refine_to_name_label(image: NDArray[np.uint8], cluster_bbox: BBox) -> BBox:
+def otsu_dark_mask(region: NDArray[np.uint8]) -> NDArray[np.bool_] | None:
+    """Stage-2 primitive (ADR 0001): dark pixels of a cluster crop via Otsu.
 
-    from scipy.ndimage import find_objects, label
+    Inside a cluster the bright brand badge and the dark name label are the two
+    dominant regions, so Otsu separates them. Returns ``None`` when the region is
+    empty or uniform (no threshold to find).
+    """
     from skimage.filters import threshold_otsu
 
-    x, y, w, h = cluster_bbox
-    region = image[y : y + h, x : x + w]
     if region.size == 0 or region.max() == region.min():
-        return cluster_bbox
+        return None
+    threshold = threshold_otsu(region)  # type: ignore[no-untyped-call]
+    return cast(NDArray[np.bool_], region <= threshold)
 
-    dark = region <= threshold_otsu(region)  # type: ignore[no-untyped-call]
-    labels, count = label(dark)
+
+def largest_component_box(mask: NDArray[np.bool_]) -> BBox | None:
+    """Stage-2 primitive: bbox of the largest connected component, in mask coords.
+
+    Returns ``None`` when the mask has no components. Largest is by true pixel count.
+    """
+    from scipy.ndimage import find_objects, label
+
+    labels, count = label(mask)
     if count == 0:
-        return cluster_bbox
-
+        return None
     best_slice = None
     best_area = 0
     for index, slc in enumerate(find_objects(labels), start=1):
@@ -108,14 +217,33 @@ def refine_to_name_label(image: NDArray[np.uint8], cluster_bbox: BBox) -> BBox:
         if area > best_area:
             best_area, best_slice = area, slc
     if best_slice is None:
+        return None
+    ys, xs = best_slice
+    return (xs.start, ys.start, xs.stop - xs.start, ys.stop - ys.start)
+
+
+def refine_to_name_label(image: NDArray[np.uint8], cluster_bbox: BBox) -> BBox:
+    """Stage 2 (ADR 0001): shrink a cluster to its dark name label, composing the
+    Stage-2 primitives (ADR 0005).
+
+    Falls back to the whole cluster (still a valid segmentation, ADR 0001) when the
+    split is ambiguous: no dark region, or a dark component implausibly small (<5%)
+    or filling almost the whole cluster (>90%).
+    """
+    x, y, w, h = cluster_bbox
+    region = image[y : y + h, x : x + w]
+    mask = otsu_dark_mask(region)
+    if mask is None:
+        return cluster_bbox
+    local = largest_component_box(mask)
+    if local is None:
         return cluster_bbox
 
-    ys, xs = best_slice
-    rw, rh = xs.stop - xs.start, ys.stop - ys.start
+    lx, ly, rw, rh = local
     fraction = (rw * rh) / (w * h)
     if not (_REFINE_MIN_FRACTION <= fraction <= _REFINE_MAX_FRACTION):
         return cluster_bbox
-    return (x + xs.start, y + ys.start, rw, rh)
+    return (x + lx, y + ly, rw, rh)
 
 
 def preprocess(image: NDArray[np.uint8]) -> NDArray[np.uint8]:

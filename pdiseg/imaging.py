@@ -6,7 +6,6 @@ from typing import cast
 import numpy as np
 from numpy.typing import NDArray
 
-
 BBox = tuple[int, int, int, int]
 
 _REJECTED_COLOR = (220, 50, 50)
