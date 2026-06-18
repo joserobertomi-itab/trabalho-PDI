@@ -28,3 +28,23 @@ separates them trivially.
 - **Pure text-density detection without the cluster framing** (rejected as the primary
   signature) — localises labels but over-detects (nutrition tables, barcodes, the SSA
   logo, the FPS overlay), pushing all the burden onto false-positive rejection.
+
+## Reconciliation (2026-06-17) — what Stage 1 actually is
+
+The shipped `detect_clusters` does **not** anchor on the "SUPER FRANGO" brand badge.
+It is **pure text-density**: `uniform_filter` local-mean threshold → `binary_closing` →
+connected components → min-area drop. That is the option this ADR's "Considered options"
+listed as *rejected* — the code and the original framing diverged, and the **code is the
+source of truth**.
+
+We accept this deliberately. Stage 1 is a **recall net**: its only job is that every
+real name label is covered by at least one candidate box; over-detection (nutrition
+tables, barcodes, glare) is expected and is **Stage 3's burden to reject**, exactly the
+"all the burden on false-positive rejection" cost noted above. The
+brand-badge-as-anchor idea remains the most promising *future* discriminator (see ADR
+0004's "genuinely more discriminative signal"), but it was never built and is out of
+scope for the classical-techniques brief.
+
+- **Stage-1 PASS** = no real name label is missed (not contained in any candidate). A
+  miss means the label merged into an over-large blob or fell below the min-area drop.
+- Over-detection is **not** a Stage-1 failure.

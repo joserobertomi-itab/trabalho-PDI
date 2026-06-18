@@ -42,6 +42,17 @@ Lock the thresholds at **recall-favoring** values rather than chase precision:
   `_LABEL_MAX_ELONGATION=4.0`): reject only the unambiguous non-labels (SSA box /
   full-frame merges, barcodes / thin edges) and accept the resulting false positives.
 
+## Known limitation — elongation is bounding-box aspect ratio, not rotation-invariant
+
+`keep_label_clusters` computes elongation as `max(w, h) / min(w, h)` on the **axis-aligned
+bounding box**. The code comment calling this "rotation-invariant" is **wrong**: it holds
+only for shapes aligned to 0°/90°. A barcode or thin edge at ~45° produces a near-*square*
+bounding box (elongation ≈ 1) and **passes** the filter; a genuinely elongated label at 45°
+likewise looks square. True rotation-invariance would require the minor/major axis of the
+component itself (e.g. region moments), not the bbox. Left as a known gap, not a parameter
+to "fix" by tightening — surfaced explicitly in the debug notebook (flag kept boxes whose
+bbox is near-square) so diagonal pass-throughs are visible rather than silent.
+
 ## Consequences
 
 - The delivered segmentation is **approximate**: good on sealed-box classes, noisier on
