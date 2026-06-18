@@ -48,3 +48,8 @@ scope for the classical-techniques brief.
 - **Stage-1 PASS** = no real name label is missed (not contained in any candidate). A
   miss means the label merged into an over-large blob or fell below the min-area drop.
 - Over-detection is **not** a Stage-1 failure.
+
+**Stage 1 is being pivoted (see ADR 0006).** The text-density recall net described here is the
+*currently graded* Stage 1, but it merges glare-heavy frames into a single blob. ADR 0006 proposes
+replacing the text-density signal with **dark-badge detection** (`detect_dark_badges`); that path is
+under validation in `debug.ipynb` and, once promoted, supersedes the Stage-1 portions of this ADR.

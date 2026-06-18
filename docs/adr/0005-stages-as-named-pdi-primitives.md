@@ -29,3 +29,13 @@ renders exactly what the grader runs, never a parallel re-implementation that co
   operation, which suits the educational/evaluation brief.
 - The debug notebook (`debug.ipynb`, a dev-only tool) imports these primitives directly;
   it is never part of the graded Docker image (`--no-dev`).
+
+## Caveat — the notebook's headline Stage 1 is the *proposed* path, not the graded one
+
+The "renders exactly what the grader runs" guarantee holds **per primitive** (each `dark_mask`,
+`close_mask`, etc. rendered in the notebook is the real pipeline code). But the notebook's headline
+**Stage 1 composition** is `detect_dark_badges` (the dark-badge pivot, ADR 0006), whereas the graded
+`detect_name_labels` still composes `detect_clusters` (text-density). So for Stage 1 specifically the
+notebook shows the *proposed* composition, not the graded one — deliberately, to validate ADR 0006.
+The text-density path is still rendered alongside (red-dashed contrast) so the divergence is visible.
+This caveat dissolves once ADR 0006 is promoted and both compositions coincide.
