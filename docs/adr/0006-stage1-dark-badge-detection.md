@@ -1,8 +1,13 @@
 ---
-status: proposed (under validation in debug.ipynb)
+status: proposed (under validation in debug.ipynb) — Stage-1 portions being revised by ADR 0007
 ---
 
 # Stage 1 pivots from text-density to dark-badge detection
+
+> **Revised by ADR 0007:** the global dark *percentile* below misses mid-grey labels (it assumes
+> the label is among the globally darkest pixels). ADR 0007 keeps the dark-badge intuition but
+> switches the discriminator to *local* darkness via a black top-hat. This ADR's reasoning stands;
+> only the global→local threshold is superseded.
 
 The text-density Stage 1 (ADR 0001 reconciliation) fails on glare-heavy frames: the plastic
 reflections fire the bright-text mask on ~17-20% of pixels, the morphological closing then merges

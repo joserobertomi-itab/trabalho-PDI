@@ -163,6 +163,67 @@ def detect_dark_badges(
     return boxes_from_components(label_components(mask))
 
 
+# Stage-1 dark-RELIEF variant (ADR 0007, revising ADR 0006). The global percentile
+# in ``dark_mask`` assumes the badge is among the darkest pixels of the *whole* frame;
+# a grey, mid-tone label fails that assumption and is missed. But the badge is always
+# dark *relative to its local neighbourhood*. A black top-hat (grey closing minus the
+# image) lights up dark structures smaller than the structuring element on a brighter
+# local background, regardless of absolute grey level — so the absolute level stops
+# mattering and only local darkness does.
+_TOPHAT_SIZE = 51  # structuring element side; must exceed the badge's larger dimension
+_RELIEF_PERCENTILE = 20  # provisional; keep the top P% of relief (most dark-relative px)
+
+
+def dark_relief(image: NDArray[np.uint8], *, size: int = _TOPHAT_SIZE) -> NDArray[np.uint8]:
+    """Stage-1 primitive (ADR 0007): black top-hat — how much darker each pixel is
+    than its local ``size``-wide neighbourhood.
+
+    ``grey_closing`` fills dark structures up to the background level; subtracting the
+    image leaves a positive bump exactly where a dark structure sat on a brighter
+    surround, and ~0 on flat or bright regions. Unlike ``dark_mask`` this is keyed on
+    *local* contrast, so a mid-grey badge lights up even when it is not globally dark.
+    """
+    from scipy.ndimage import grey_closing
+
+    closed = grey_closing(image, size=(size, size))
+    relief = closed.astype(np.int16) - image.astype(np.int16)
+    return cast(NDArray[np.uint8], relief.clip(0, 255).astype(np.uint8))
+
+
+def relief_mask(
+    relief: NDArray[np.uint8], *, percentile: float = _RELIEF_PERCENTILE
+) -> NDArray[np.bool_]:
+    """Stage-1 primitive (ADR 0007): keep the top ``percentile``% of the relief.
+
+    The threshold is taken at the ``100 - percentile`` quantile, so ``percentile=20``
+    keeps the 20% most dark-relative pixels — mirroring ``dark_mask``'s "keep the most
+    badge-like P%" semantics. Flat regions (relief 0) never fire: the test is strict
+    ``>``, so a uniform frame yields an empty mask.
+    """
+    threshold = np.percentile(relief, 100 - percentile)
+    return cast(NDArray[np.bool_], relief > threshold)
+
+
+def detect_dark_relief_badges(
+    image: NDArray[np.uint8],
+    *,
+    size: int = _TOPHAT_SIZE,
+    percentile: float = _RELIEF_PERCENTILE,
+) -> list[BBox]:
+    """Stage 1, dark-relief variant (ADR 0007): a recall net keyed on *local* darkness.
+
+    Black top-hat to surface locally-dark structures, threshold the strongest relief,
+    open away specks, close each badge solid, then bound the components. Over-detection
+    is expected; rejection is Stage 3's job. Composes the Stage-1 primitives (ADR 0005),
+    reusing ``open_mask``/``close_mask``/``label_components``/``boxes_from_components``
+    so the notebook renders the same code the grader runs.
+    """
+    mask = relief_mask(dark_relief(image, size=size), percentile=percentile)
+    mask = open_mask(mask)
+    mask = close_mask(mask, structure=_DARK_CLOSE_STRUCTURE)
+    return boxes_from_components(label_components(mask))
+
+
 _LABEL_MIN_AREA = 3000
 _LABEL_MAX_AREA = 150000
 _LABEL_MAX_ELONGATION = 4.0

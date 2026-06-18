@@ -173,3 +173,61 @@ def test_detect_dark_badges_separates_two_distant_badges():
 
 def test_detect_dark_badges_is_empty_on_a_uniform_image():
     assert pdiseg.detect_dark_badges(np.full((300, 400), 120, dtype=np.uint8)) == []
+
+
+# --- Stage 1 dark-relief variant (ADR 0007) ----------------------------------
+
+
+def test_dark_relief_is_zero_on_a_uniform_image():
+    # Closing of a flat field equals the field, so the top-hat is identically zero.
+    assert not pdiseg.dark_relief(np.full((80, 80), 120, dtype=np.uint8)).any()
+
+
+def test_dark_relief_lights_up_a_locally_dark_badge():
+    img = np.full((300, 500), 170, dtype=np.uint8)
+    _draw_dark_badge(img, 150, 100, 330, 180, badge=110)  # mid-grey, not globally dark
+
+    relief = pdiseg.dark_relief(img, size=51)
+
+    assert relief.dtype == np.uint8
+    assert relief[100:180, 150:330].max() > 0  # the badge is darker than its surround
+    assert relief[:80, :80].max() == 0  # the flat surround stays at zero relief
+
+
+def test_relief_mask_is_empty_on_a_uniform_image():
+    assert not pdiseg.relief_mask(pdiseg.dark_relief(np.full((80, 80), 90, dtype=np.uint8))).any()
+
+
+def test_dark_relief_catches_a_grey_badge_that_global_dark_mask_misses():
+    """The failure ADR 0007 fixes: a mid-grey badge missed by the global percentile.
+
+    A large darker region elsewhere eats the darkest-20% budget, so ``dark_mask``
+    never reaches the grey badge. The local top-hat ignores the large region (bigger
+    than its structuring element) and surfaces the badge by local contrast.
+    """
+    img = np.full((300, 600), 180, dtype=np.uint8)
+    img[:, :210] = np.linspace(0, 70, 210, dtype=np.uint8)  # big dark gradient, ~35% of frame
+    _draw_dark_badge(img, 360, 110, 510, 190, badge=120)  # grey badge on the bright side
+    badge = (slice(110, 190), slice(360, 510))
+
+    missed = pdiseg.dark_mask(img, percentile=20)
+    assert not missed[badge].any()  # global percentile never reaches the grey badge
+
+    caught = pdiseg.relief_mask(pdiseg.dark_relief(img, size=51), percentile=20)
+    assert caught[badge].any()  # local relief surfaces it anyway
+
+
+def test_detect_dark_relief_badges_finds_a_grey_badge():
+    img = np.full((300, 500), 170, dtype=np.uint8)
+    _draw_dark_badge(img, 150, 100, 330, 180, badge=110)
+
+    boxes = pdiseg.detect_dark_relief_badges(img)
+
+    assert len(boxes) == 1
+    x, y, w, h = boxes[0]
+    cx, cy = x + w / 2, y + h / 2
+    assert 150 <= cx <= 330 and 100 <= cy <= 180
+
+
+def test_detect_dark_relief_badges_is_empty_on_a_uniform_image():
+    assert pdiseg.detect_dark_relief_badges(np.full((300, 400), 120, dtype=np.uint8)) == []
