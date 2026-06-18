@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# End-to-end smoke test for the Docker Compose delivery path.
-# Creates a tiny synthetic dataset/, runs the pipeline container, asserts result/.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -42,4 +40,14 @@ docker compose --profile tools run --rm calibrate
 test -f "$CALIB_DIR/boxes.json"
 test -f "$CALIB_DIR/stats.csv"
 
-echo "Docker Compose smoke test passed (pipeline + calibrate)."
+docker compose --profile tools up -d --no-build review
+for _ in $(seq 1 30); do
+  if curl -sf "http://127.0.0.1:${PORT:-8765}/api/classes" >/dev/null; then
+    break
+  fi
+  sleep 1
+done
+curl -sf "http://127.0.0.1:${PORT:-8765}/api/classes" | grep -q SmokeClass
+docker compose --profile tools stop review
+
+echo "docker smoke ok"

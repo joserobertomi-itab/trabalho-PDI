@@ -1,5 +1,3 @@
-"""Review viewer HTTP surface — thin integration checks."""
-
 from pathlib import Path
 
 import imageio.v3 as iio

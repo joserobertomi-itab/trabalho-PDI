@@ -1,5 +1,3 @@
-"""Review viewer model — directory contract assembly without detection."""
-
 from pathlib import Path
 
 import imageio.v3 as iio

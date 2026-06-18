@@ -1,5 +1,3 @@
-"""CLI entry points: help and smoke checks."""
-
 import subprocess
 import sys
 from pathlib import Path
@@ -15,7 +13,7 @@ def test_pdiseg_module_help_exits_zero():
         cwd=_REPO_ROOT,
     )
     assert result.returncode == 0
-    assert "Segment poultry-packaging" in result.stdout
+    assert "Segment poultry packaging" in result.stdout
 
 
 def test_calibrate_cli_help_exits_zero():
@@ -26,7 +24,7 @@ def test_calibrate_cli_help_exits_zero():
         cwd=_REPO_ROOT,
     )
     assert result.returncode == 0
-    assert "calibration harness" in result.stdout
+    assert "boxes.json" in result.stdout
 
 
 def test_calibrate_console_entry_help_exits_zero():

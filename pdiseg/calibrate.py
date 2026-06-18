@@ -1,11 +1,3 @@
-"""Calibration harness (issue #6): run the pipeline over the base, expose the
-per-stage detection breakdown, render overlays, and aggregate per-class stats so
-a human can lock the fixed pixel-size thresholds (Stages 1-3, docs/adr/0001).
-
-The harness reads folder names only to label and group its *reports*; the
-detection algorithm never sees them (acceptance criterion of issue #6).
-"""
-
 from __future__ import annotations
 
 import json
@@ -26,12 +18,7 @@ from .pipeline import (
 
 
 def inspect_frame(image: NDArray[np.uint8]) -> FrameInspection:
-    """Run the two-stage detector on a raw frame, keeping each stage's output.
 
-    Mirrors ``detect_name_labels`` (same internal preprocessing, boxes index the
-    original frame) but returns the intermediate Stage-1/Stage-3 boxes too, so the
-    calibration overlays can show where false positives are rejected.
-    """
     working = preprocess(image)
     candidates = detect_clusters(working)
     kept = keep_label_clusters(candidates)
@@ -41,8 +28,6 @@ def inspect_frame(image: NDArray[np.uint8]) -> FrameInspection:
 
 @dataclass
 class ClassStats:
-    """Per-class aggregate of the detection funnel over the calibrated base."""
-
     class_name: str
     frames: int
     candidates: int
@@ -53,7 +38,7 @@ class ClassStats:
 def calibrate(
     input_root: str | Path, output_dir: str | Path, per_class_limit: int = 3
 ) -> list[ClassStats]:
-    """Run the pipeline over the base, writing overlays, boxes.json, and stats."""
+
     import imageio.v3 as iio
 
     input_root = Path(input_root)

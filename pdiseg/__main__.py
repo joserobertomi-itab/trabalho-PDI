@@ -1,5 +1,3 @@
-"""Command-line entry point: ``python -m pdiseg [INPUT_ROOT] [OUTPUT_ROOT]``."""
-
 from __future__ import annotations
 
 import argparse
@@ -10,7 +8,7 @@ from .pipeline import run
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         prog="pdiseg",
-        description="Segment poultry-packaging name labels across a dataset.",
+        description="Segment poultry packaging labels in a dataset folder tree.",
     )
     parser.add_argument(
         "input_root",

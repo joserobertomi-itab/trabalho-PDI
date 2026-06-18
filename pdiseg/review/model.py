@@ -1,5 +1,3 @@
-"""Assemble a review model from the directory contract — no detection imports."""
-
 from __future__ import annotations
 
 import csv

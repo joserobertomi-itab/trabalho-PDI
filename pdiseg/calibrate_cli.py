@@ -1,10 +1,3 @@
-"""Command-line entry point for the calibration harness (issue #6):
-``python -m pdiseg.calibrate_cli [INPUT_ROOT] [OUTPUT_DIR]``.
-
-Kept in its own module (not imported by ``pdiseg/__init__``) so running it with
-``-m`` does not re-import an already-loaded submodule (runpy RuntimeWarning).
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -14,11 +7,10 @@ from .calibrate import calibrate
 
 
 def main(argv: list[str] | None = None) -> None:
-    """Run the calibration harness over the base, write overlays + stats.csv under
-    OUTPUT_DIR, and print the per-class funnel plus totals."""
+
     parser = argparse.ArgumentParser(
         prog="pdiseg.calibrate_cli",
-        description="Run the calibration harness: overlays + per-class stats (issue #6).",
+        description="Write overlays, boxes.json and stats.csv for a dataset.",
     )
     parser.add_argument(
         "input_root",

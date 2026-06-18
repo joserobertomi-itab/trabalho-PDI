@@ -1,5 +1,3 @@
-"""Review viewer CLI smoke checks."""
-
 import subprocess
 import sys
 from pathlib import Path
@@ -15,6 +13,6 @@ def test_review_cli_help_exits_zero():
         cwd=_REPO_ROOT,
     )
     assert result.returncode == 0
-    assert "Read-only web viewer" in result.stdout
+    assert "Web UI" in result.stdout
     assert "--result" in result.stdout
     assert "--calibration" in result.stdout

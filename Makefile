@@ -1,6 +1,3 @@
-# Poultry-packaging name-label segmentation — local tasks (uv-backed).
-# Override paths on the command line, e.g.: make run DATA=dataset OUT=result
-
 UV      ?= uv
 PY      := $(UV) run
 DATA    ?= data/Train_and_Validation
@@ -13,62 +10,66 @@ COMPOSE ?= docker compose
 .DEFAULT_GOAL := help
 
 .PHONY: help setup sync lock test lint format typecheck check ci run calibrate review \
-	docker-build docker-up docker-calibrate docker-review docker-smoke clean
+	docker-build docker-up docker-calibrate docker-review docker-export docker-smoke clean
 
-help:  ## Show this help
+help:  ##
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 
-setup: sync  ## Install locked runtime + dev dependencies with uv
+setup: sync  ## Install deps (uv sync --extra dev)
 
-sync:  ## Sync the virtualenv from uv.lock (includes dev extras)
+sync:  ##
 	$(UV) sync --extra dev
 
-lock:  ## Refresh uv.lock after pyproject.toml dependency changes
+lock:  ##
 	$(UV) lock
 
-test:  ## Run the test suite with coverage
+test:  ##
 	$(PY) pytest --cov=pdiseg --cov-report=term-missing -q
 
-lint:  ## Lint with ruff
+lint:  ##
 	$(PY) ruff check pdiseg tests
 
-format:  ## Format code with ruff
+format:  ##
 	$(PY) ruff format pdiseg tests
 	$(PY) ruff check --fix pdiseg tests
 
-typecheck:  ## Static type check with mypy
+typecheck:  ##
 	$(PY) mypy pdiseg
 
-check: lint typecheck test  ## Run lint, typecheck, and tests
+check: lint typecheck test  ##
 
-ci: sync check  ## Full local CI gate (sync + check)
+ci: sync check  ##
 
-run:  ## Segment the base into $(OUT)/<Class>/<source>_segmentada_<N>.png
+run:  ##
 	$(PY) pdiseg $(DATA) $(OUT)
 
-calibrate:  ## Run calibration harness: overlays + boxes.json + stats.csv into $(CALIB)/
+calibrate:  ##
 	$(PY) pdiseg-calibrate $(DATA) $(CALIB) --per-class-limit $(LIMIT)
 
-review:  ## Launch the read-only review viewer on http://127.0.0.1:$(PORT)/
+review:  ##
 	$(PY) pdiseg-review --dataset $(DATA) --calibration $(CALIB) --result $(OUT) --port $(PORT)
 
-docker-build:  ## Build the production Docker image (pipeline + tools)
+docker-build:  ##
 	$(COMPOSE) build pipeline
 
-docker-up: docker-build  ## Submission path: docker compose up (DATA → result/)
+docker-up: docker-build  ##
 	DATA=./$(DATA) OUT=./$(OUT) $(COMPOSE) up --build pipeline
 
-docker-calibrate: docker-build  ## Write calibration/ via Docker (boxes.json + stats)
+docker-calibrate: docker-build  ##
 	DATA=./$(DATA) $(COMPOSE) --profile tools run --rm calibrate
 
-docker-review: docker-build  ## Run the review viewer in Docker on port $(PORT)
-	DATA=./$(DATA) OUT=./$(OUT) CALIB=./calibration PORT=$(PORT) \
+docker-review: docker-build  ##
+	DATA=./$(DATA) OUT=./$(OUT) CALIB=./$(CALIB) PORT=$(PORT) \
+		DOCKER_UID=$$(id -u) DOCKER_GID=$$(id -g) \
 		$(COMPOSE) --profile tools up review
 
-docker-smoke:  ## E2E Docker Compose smoke test (synthetic dataset/)
+docker-export:  ##
+	bash scripts/docker-export-artifacts.sh
+
+docker-smoke:  ##
 	bash scripts/docker-smoke.sh
 
-clean:  ## Remove generated outputs and caches
+clean:  ##
 	rm -rf $(OUT) $(CALIB) .docker-smoke .pytest_cache .ruff_cache .mypy_cache htmlcov .coverage coverage.xml
 	find . -type d -name __pycache__ -prune -exec rm -rf {} +

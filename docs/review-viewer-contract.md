@@ -1,34 +1,30 @@
-# Review viewer directory contract
+# Review viewer
 
-The review viewer is a **read-only** tool outside the graded pipeline. It never runs
-detection; it renders overlays and crops from artifacts already on disk.
+Ferramenta web para olhar source, overlay e crops. Não executa o detector.
 
-## Inputs
+## Pastas
 
-| Path | Required | Contents |
-|------|----------|----------|
-| `dataset/` (or `--dataset`) | Yes | Source frames: `dataset/<Class>/<image>.jpg` |
-| `calibration/` (or `--calibration`) | Yes | `boxes.json`, `stats.csv`, optional sample `*_overlay.png` |
-| `result/` (or `--result`) | No | Segmentation crops: `result/<Class>/<stem>_segmentada_<N>.png` |
+| Pasta | Obrigatório | Conteúdo |
+|-------|-------------|----------|
+| `dataset/` | sim | Imagens originais |
+| `calibration/` | sim | `boxes.json`, `stats.csv` |
+| `result/` | não | `*_segmentada_N.png` |
 
-Generate `boxes.json` and `stats.csv` with:
+Gerar calibration:
 
 ```sh
 make calibrate
-# or: uv run pdiseg-calibrate data/Train_and_Validation calibration
 ```
 
-Generate `result/` with:
+Gerar result:
 
 ```sh
 make run
-# or: uv run pdiseg data/Train_and_Validation result
 ```
 
-## `boxes.json` shape
+## `boxes.json`
 
-Single JSON object keyed by **source path relative to the dataset root** (POSIX
-slashes), e.g. `Peito_Congelado/img001.jpg`:
+Chave = caminho relativo ao dataset, ex. `Peito_Congelado/img001.jpg`:
 
 ```json
 {
@@ -40,25 +36,24 @@ slashes), e.g. `Peito_Congelado/img001.jpg`:
 }
 ```
 
-Each value is a list of `[x, y, width, height]` boxes in pixel coordinates on the
-**original** (un-preprocessed) frame.
+Coordenadas `[x, y, largura, altura]` na imagem original.
 
-## Launch
+## Subir
 
 ```sh
 make review
-# or:
-uv run pdiseg-review \
-  --dataset data/Train_and_Validation \
-  --calibration calibration \
-  --result result \
-  --port 8765
 ```
 
-Open `http://127.0.0.1:8765/`.
+ou
 
-## Degraded modes
+```sh
+uv run pdiseg-review --dataset data/Train_and_Validation --calibration calibration --result result
+```
 
-- Missing `boxes.json` entry for a frame → source and disk crops still shown; overlay skipped.
-- Missing `result/` crop → crop rendered on the fly from the green label box when metadata exists.
-- Missing source image → frame listed with a notice; other artifacts still shown when available.
+Abrir http://127.0.0.1:8765/
+
+## Sem algum arquivo
+
+- Sem entrada no `boxes.json` → mostra source e crops do disco, sem overlay.
+- Sem PNG em `result/` → renderiza crop a partir da caixa verde se tiver metadata.
+- Sem source → lista o frame com aviso.

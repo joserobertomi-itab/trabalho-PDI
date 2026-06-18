@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Ensure writable bind mounts are owned by the app user, then drop privileges
-# with lowered CPU/IO priority so batch runs stay gentle on the host.
 set -euo pipefail
 
 APP_USER="${APP_USER:-pdiseg}"
@@ -16,7 +14,6 @@ prepare_writable_mount() {
         return 0
     fi
     mkdir -p "$path"
-    # Review mounts dataset artifacts read-only; skip chown on non-writable binds.
     if ! touch "${path}/.pdiseg_write_test" 2>/dev/null; then
         return 0
     fi
@@ -25,21 +22,26 @@ prepare_writable_mount() {
 }
 
 run_as_app_user() {
-    # ionice/nice keep the batch job from starving the desktop; ignore if unavailable.
     if command -v ionice >/dev/null 2>&1; then
         exec gosu "${APP_USER}" ionice -c"${IONICE_CLASS}" -n"${IONICE_LEVEL}" nice -n "${NICE_LEVEL}" "$@"
     fi
     exec gosu "${APP_USER}" nice -n "${NICE_LEVEL}" "$@"
 }
 
+run_with_priority() {
+    if command -v ionice >/dev/null 2>&1; then
+        exec ionice -c"${IONICE_CLASS}" -n"${IONICE_LEVEL}" nice -n "${NICE_LEVEL}" "$@"
+    fi
+    exec nice -n "${NICE_LEVEL}" "$@"
+}
+
 if [[ "$(id -u)" -eq 0 ]]; then
-    for dir in /data/output /data/calibration; do
-        prepare_writable_mount "$dir"
-    done
+    if [[ "${PDISEG_PREPARE_MOUNTS:-0}" == "1" ]]; then
+        for dir in /data/output /data/calibration; do
+            prepare_writable_mount "$dir"
+        done
+    fi
     run_as_app_user "$@"
 fi
 
-if command -v ionice >/dev/null 2>&1; then
-    exec ionice -c"${IONICE_CLASS}" -n"${IONICE_LEVEL}" nice -n "${NICE_LEVEL}" "$@"
-fi
-exec nice -n "${NICE_LEVEL}" "$@"
+run_with_priority "$@"

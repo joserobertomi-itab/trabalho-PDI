@@ -1,5 +1,3 @@
-"""Thin HTTP layer for the read-only review viewer."""
-
 from __future__ import annotations
 
 import io

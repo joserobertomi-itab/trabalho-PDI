@@ -1,11 +1,3 @@
-# Frozen poultry-packaging segmentation — Docker Compose delivery (issue #7).
-#
-#   mkdir -p result calibration
-#   docker compose up --build
-#
-# Low-impact defaults: 1 CPU, 1.5 GiB RAM, single BLAS thread, lower process priority.
-# Tune in .env (see .env.example) if the machine has more headroom.
-
 name: pdiseg
 
 x-lightweight-env: &lightweight-env
@@ -24,6 +16,10 @@ x-lightweight: &lightweight
   cpu_shares: 128
   pids_limit: 128
 
+volumes:
+  pdiseg-result:
+  pdiseg-calibration:
+
 services:
   pipeline:
     build:
@@ -36,6 +32,7 @@ services:
       - ${OUT:-./result}:/data/output
     environment:
       <<: *lightweight-env
+      PDISEG_PREPARE_MOUNTS: "1"
     <<: *lightweight
     security_opt:
       - no-new-privileges:true
@@ -49,9 +46,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    environment:
-      <<: *lightweight-env
-      PDISEG_PREPARE_CALIBRATION: "1"
     command:
       - pdiseg-calibrate
       - /data/input
@@ -61,6 +55,9 @@ services:
     volumes:
       - ${DATA:-./data/Train_and_Validation}:/data/input:ro
       - ${CALIB:-./calibration}:/data/calibration
+    environment:
+      <<: *lightweight-env
+      PDISEG_PREPARE_MOUNTS: "1"
     <<: *lightweight
     security_opt:
       - no-new-privileges:true
@@ -74,6 +71,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
     command:
       - pdiseg-review
       - --dataset

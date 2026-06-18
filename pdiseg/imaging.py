@@ -1,9 +1,3 @@
-"""Shared rendering helpers: bounding boxes, crops, and stage-colored overlays.
-
-This module contains no detection logic — only types and pixel operations used by
-the graded pipeline, the calibration harness, and the review viewer.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -12,7 +6,7 @@ from typing import cast
 import numpy as np
 from numpy.typing import NDArray
 
-# Pixel coordinates: (x, y, width, height).
+
 BBox = tuple[int, int, int, int]
 
 _REJECTED_COLOR = (220, 50, 50)
@@ -22,8 +16,6 @@ _LABEL_COLOR = (40, 200, 80)
 
 @dataclass
 class FrameInspection:
-    """Per-stage box breakdown for one frame (calibration / review view)."""
-
     candidates: list[BBox]
     kept: list[BBox]
     labels: list[BBox]
@@ -52,10 +44,7 @@ def _draw_box(rgb: NDArray[np.uint8], bbox: BBox, color: tuple[int, int, int]) -
 
 
 def render_overlay(image: NDArray[np.uint8], inspection: FrameInspection) -> NDArray[np.uint8]:
-    """Draw per-stage boxes on an RGB copy of the frame.
 
-    Red = rejected candidates, yellow = kept clusters, green = refined name labels.
-    """
     from skimage.color import gray2rgb
     from skimage.util import img_as_ubyte
 

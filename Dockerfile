@@ -52,7 +52,6 @@ ENV PATH="/app/.venv/bin:$PATH" \
     NUMEXPR_NUM_THREADS=1 \
     VECLIB_MAXIMUM_THREADS=1
 
-# Entrypoint runs as root to fix bind-mount permissions, then gosu → pdiseg.
 USER root
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]

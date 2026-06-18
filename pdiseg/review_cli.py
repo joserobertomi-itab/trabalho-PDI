@@ -1,5 +1,3 @@
-"""Launch the read-only review viewer (outside the graded pipeline)."""
-
 from __future__ import annotations
 
 import argparse
@@ -8,10 +6,7 @@ import argparse
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         prog="pdiseg-review",
-        description=(
-            "Read-only web viewer for segmentation artifacts. "
-            "Never runs detection — renders overlays from calibration/boxes.json."
-        ),
+        description="Web UI to browse source images, overlays and crops.",
     )
     parser.add_argument(
         "--dataset",
