@@ -1,21 +1,5 @@
 name: pdiseg
 
-x-lightweight-env: &lightweight-env
-  OMP_NUM_THREADS: ${OMP_NUM_THREADS:-1}
-  OPENBLAS_NUM_THREADS: ${OPENBLAS_NUM_THREADS:-1}
-  MKL_NUM_THREADS: ${MKL_NUM_THREADS:-1}
-  NUMEXPR_NUM_THREADS: ${NUMEXPR_NUM_THREADS:-1}
-  VECLIB_MAXIMUM_THREADS: ${VECLIB_MAXIMUM_THREADS:-1}
-  NICE_LEVEL: ${NICE_LEVEL:-10}
-  IONICE_CLASS: ${IONICE_CLASS:-3}
-  IONICE_LEVEL: ${IONICE_LEVEL:-7}
-
-x-lightweight: &lightweight
-  cpus: ${DOCKER_CPUS:-1.0}
-  mem_limit: ${DOCKER_MEMORY:-1536m}
-  cpu_shares: 128
-  pids_limit: 128
-
 volumes:
   pdiseg-result:
   pdiseg-calibration:
@@ -31,9 +15,7 @@ services:
       - ${DATA:-./data/Train_and_Validation}:/data/input:ro
       - ${OUT:-./result}:/data/output
     environment:
-      <<: *lightweight-env
       PDISEG_PREPARE_MOUNTS: "1"
-    <<: *lightweight
     security_opt:
       - no-new-privileges:true
     read_only: true
@@ -56,9 +38,7 @@ services:
       - ${DATA:-./data/Train_and_Validation}:/data/input:ro
       - ${CALIB:-./calibration}:/data/calibration
     environment:
-      <<: *lightweight-env
       PDISEG_PREPARE_MOUNTS: "1"
-    <<: *lightweight
     security_opt:
       - no-new-privileges:true
     read_only: true
@@ -90,11 +70,6 @@ services:
       - ${DATA:-./data/Train_and_Validation}:/data/input:ro
       - ${CALIB:-./calibration}:/data/calibration:ro
       - ${OUT:-./result}:/data/output:ro
-    environment:
-      <<: *lightweight-env
-    cpus: ${DOCKER_CPUS:-1.0}
-    mem_limit: ${DOCKER_MEMORY:-768m}
-    cpu_shares: 128
     security_opt:
       - no-new-privileges:true
     read_only: true

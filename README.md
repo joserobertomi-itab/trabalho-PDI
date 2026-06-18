@@ -2,9 +2,11 @@
 
 Localiza e recorta a região da embalagem nas imagens do dataset. Só segmentação — sem classificação nem OCR.
 
-Enunciado original: [requirements.md](./requirements.md). Termos do domínio: [CONTEXT.md](./CONTEXT.md).
+Enunciado: [requirements.md](./requirements.md) · Glossário: [CONTEXT.md](./CONTEXT.md)
 
-## Entrada e saída
+---
+
+## 1. Entrada e saída
 
 ```
 dataset/                          result/
@@ -14,45 +16,80 @@ dataset/                          result/
 └── ...                           └── ...
 ```
 
-O nome da pasta (`Peito_Congelado`, `Moela`, etc.) só organiza a saída. O algoritmo não usa isso.
+- O nome da pasta (`Peito_Congelado`, `Moela`, etc.) só organiza a saída — o algoritmo não usa isso.
+- Base em `data/Train_and_Validation/`: 18 classes × 50 imagens (1280×720, escala de cinza).
+- Arquivos `*.jpgZone.Identifier` são ignorados.
 
-A base em `data/Train_and_Validation/` tem 18 classes × 50 imagens (1280×720, escala de cinza). Arquivos `*.jpgZone.Identifier` são ignorados.
+---
 
-## Restrições
+## 2. Pré-requisitos
 
-Só técnicas da Parte 1 do curso: limiarização, morfologia, filtros, histogramas, etc. Sem IA / segmentação automática de biblioteca.
+- [uv](https://docs.astral.sh/uv/) (recomendado) ou Python 3.12+
+- [Docker](https://docs.docker.com/) + Docker Compose (para entrega via container)
 
-## Rodar local
+Restrições do trabalho: só técnicas da Parte 1 do curso (limiarização, morfologia, filtros, histogramas, etc.). Sem IA.
 
-Precisa de [uv](https://docs.astral.sh/uv/) (ou Python 3.12+).
+---
+
+## 3. Instalação
 
 ```sh
 make setup
-make run          # gera result/
-make calibrate    # gera calibration/ (overlays, boxes.json, stats.csv)
-make review       # http://127.0.0.1:8765/
 ```
 
-Paths customizados:
+Equivalente: `uv sync --extra dev`
+
+---
+
+## 4. Rodar a segmentação (local)
+
+```sh
+make run
+```
+
+Gera `result/<Classe>/<arquivo>_segmentada_<N>.png`.
+
+Com outro caminho de entrada/saída:
 
 ```sh
 make run DATA=dataset OUT=result
-make calibrate LIMIT=9999    # boxes.json em todos os frames
 ```
 
-CLIs:
+---
+
+## 5. Calibrar (overlays + boxes.json)
 
 ```sh
-uv run pdiseg [INPUT] [OUTPUT]
-uv run pdiseg-calibrate [INPUT] [OUTPUT_DIR] [--per-class-limit N]
-uv run pdiseg-review --dataset DATA --calibration CALIB --result OUT
+make calibrate
 ```
 
-O review viewer só mostra o que já foi gerado — não roda o detector de novo.
+Gera `calibration/` com overlays de amostra, `boxes.json` e `stats.csv`.
 
-## Docker
+Para `boxes.json` em **todos** os frames:
 
-Entrega via Compose (`docker compose up --build`). Detalhes em [docs/docker-compose.md](./docs/docker-compose.md).
+```sh
+make calibrate LIMIT=9999
+```
+
+---
+
+## 6. Ver resultados no navegador (review)
+
+```sh
+make review
+```
+
+Abre http://127.0.0.1:8765/ — mostra source, overlay e crops. Não roda o detector de novo.
+
+Outra porta:
+
+```sh
+make review PORT=9000
+```
+
+---
+
+## 7. Rodar com Docker (entrega)
 
 ```sh
 mkdir -p result calibration
@@ -60,40 +97,89 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Para o dataset com o nome do enunciado:
+Ou via Make:
+
+```sh
+make docker-up
+```
+
+Dataset com o nome do enunciado:
 
 ```sh
 DATA=./dataset docker compose up --build
 ```
 
-Ferramentas extras:
+Ferramentas extras (profile `tools`):
 
 ```sh
-docker compose --profile tools run --rm calibrate
-docker compose --profile tools up review
+make docker-calibrate
+make docker-review
 ```
 
-Se o review no Docker der erro de permissão, use volumes nomeados no `.env`:
+Detalhes: [docs/docker-compose.md](./docs/docker-compose.md).
+
+Se o review no Docker der erro de permissão, no `.env`:
 
 ```env
 OUT=pdiseg-result
 CALIB=pdiseg-calibration
 ```
 
-Depois: `bash scripts/docker-export-artifacts.sh` para copiar para `./result`.
+Depois: `make docker-export`
 
-## Desenvolvimento
+---
+
+## 8. Referência do Make
+
+Rode `make` ou `make help` para listar tudo.
+
+### Variáveis
+
+| Variável | Padrão | Uso |
+|----------|--------|-----|
+| `DATA` | `data/Train_and_Validation` | Pasta de entrada |
+| `OUT` | `result` | Saída da segmentação |
+| `CALIB` | `calibration` | Saída da calibração |
+| `LIMIT` | `3` | Overlays por classe no calibrate |
+| `PORT` | `8765` | Porta do review |
+
+### Comandos
+
+| Comando | O que faz |
+|---------|-----------|
+| `make run` | segmenta → `result/` |
+| `make calibrate` | gera `calibration/` |
+| `make review` | viewer web |
+| `make docker-up` | pipeline no Docker |
+| `make docker-calibrate` | calibrate no Docker |
+| `make docker-review` | review no Docker |
+| `make docker-export` | copia volume nomeado → `./result` |
+| `make test` | pytest |
+| `make lint` | ruff check |
+| `make format` | ruff format |
+| `make typecheck` | mypy |
+| `make check` | lint + mypy + testes |
+| `make clean` | apaga `result/`, `calibration/`, caches |
+
+### CLIs (sem Make)
 
 ```sh
-make check    # lint + mypy + testes
+uv run pdiseg [INPUT] [OUTPUT]
+uv run pdiseg-calibrate [INPUT] [OUTPUT_DIR] [--per-class-limit N]
+uv run pdiseg-review --dataset DATA --calibration CALIB --result OUT [--port 8765]
 ```
 
-CI no GitHub Actions: lint, mypy, pytest, build Docker.
+---
 
-## Avaliação
+## 9. Avaliação
 
-60% base fornecida, 40% imagens não vistas (código congelado).
+- 60% — desempenho na base fornecida
+- 40% — imagens não vistas (código congelado)
 
-## Entrega
+---
 
-Colab no Moodle **ou** Docker Compose. Enviar link do Colab para `alessandro.rodrigues@ifg.edu.br`.
+## 10. Entrega
+
+Colab no Moodle **ou** Docker Compose.
+
+Enviar link do Colab para `alessandro.rodrigues@ifg.edu.br`.
