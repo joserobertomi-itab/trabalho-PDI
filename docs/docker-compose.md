@@ -15,7 +15,8 @@ docker compose up --build
 
 Create output directories before the first run. The container **entrypoint** automatically
 `chown`s writable bind mounts (`result/`, `calibration/`) to the app user (uid 1000),
-so root-owned folders from earlier runs are fixed on startup.
+so root-owned folders from earlier runs are fixed on startup. Read-only mounts (the review
+viewer) skip this step.
 
 ### Gentle on the host (laptops)
 

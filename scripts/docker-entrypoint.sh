@@ -12,10 +12,16 @@ IONICE_LEVEL="${IONICE_LEVEL:-7}"
 
 prepare_writable_mount() {
     local path="$1"
-    if mountpoint -q "$path"; then
-        mkdir -p "$path"
-        chown -R "${APP_UID}:${APP_GID}" "$path"
+    if ! mountpoint -q "$path"; then
+        return 0
     fi
+    mkdir -p "$path"
+    # Review mounts dataset artifacts read-only; skip chown on non-writable binds.
+    if ! touch "${path}/.pdiseg_write_test" 2>/dev/null; then
+        return 0
+    fi
+    rm -f "${path}/.pdiseg_write_test"
+    chown -R "${APP_UID}:${APP_GID}" "$path"
 }
 
 run_as_app_user() {
