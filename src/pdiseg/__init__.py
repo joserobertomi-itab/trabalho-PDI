@@ -10,10 +10,12 @@ from pdiseg.core.imaging import BBox, FrameInspection, crop, render_overlay
 from pdiseg.debug.viz import (
     debug_frame,
     draw_boxes,
+    feature_summary,
     save_debug_bundle,
     scored_table,
     to_rgb,
     visualize_masks,
+    visualize_opened_background,
 )
 from pdiseg.detection.candidates import detect_clusters, find_candidate_boxes
 from pdiseg.detection.config import DetectionConfig
@@ -72,6 +74,7 @@ __all__ = [
     "detect_name_labels",
     "draw_boxes",
     "dump_preprocessed",
+    "feature_summary",
     "find_candidate_boxes",
     "find_source_images",
     "inspect_detection",
@@ -92,4 +95,5 @@ __all__ = [
     "scored_table",
     "to_rgb",
     "visualize_masks",
+    "visualize_opened_background",
 ]

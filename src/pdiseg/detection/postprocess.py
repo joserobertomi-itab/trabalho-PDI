@@ -17,18 +17,26 @@ from .scoring import ScoredCandidate, score_candidates
 
 
 def keep_label_clusters(
-    candidates: list[BBox], config: DetectionConfig | None = None
+    candidates: list[BBox],
+    config: DetectionConfig | None = None,
+    *,
+    frame_width: int | None = None,
 ) -> list[BBox]:
     cfg = config or DetectionConfig()
+    lateral = 0
+    if cfg.lateral_margin_frac > 0 and frame_width is not None:
+        lateral = int(frame_width * cfg.lateral_margin_frac)
     kept: list[BBox] = []
     for x, y, w, h in candidates:
         area = w * h
         elongation = max(w, h) / min(w, h)
-        if (
-            cfg.label_min_area <= area <= cfg.label_max_area
-            and elongation <= cfg.label_max_elongation
-        ):
-            kept.append((x, y, w, h))
+        if not (cfg.label_min_area <= area <= cfg.label_max_area):
+            continue
+        if elongation > cfg.label_max_elongation:
+            continue
+        if lateral > 0 and (x < lateral or x + w > frame_width - lateral):  # type: ignore[operator]
+            continue
+        kept.append((x, y, w, h))
     return kept
 
 
@@ -96,7 +104,7 @@ def _fallback_boxes(work: NDArray[np.uint8], config: DetectionConfig) -> list[BB
     masks = build_candidate_masks(work, config)
     min_area = max(800, int(height * width * config.min_area_frac * 0.8))
     boxes = boxes_from_mask(masks.dark_luma & ~masks.glare, min_area, config, frame_area)
-    boxes = keep_label_clusters(boxes, config)
+    boxes = keep_label_clusters(boxes, config, frame_width=width)
     if not boxes:
         return []
     scored = score_candidates(work, work, boxes, config)

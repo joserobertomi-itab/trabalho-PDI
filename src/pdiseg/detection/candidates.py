@@ -10,7 +10,11 @@ from pdiseg.core.boxes import box_area, dedupe_boxes
 from pdiseg.core.imaging import BBox
 
 from .config import DetectionConfig
-from .masks import build_candidate_masks, text_density_mask
+from .masks import (
+    build_candidate_masks,
+    dog_text_mask,
+    text_density_mask,
+)
 
 
 def _area_ok(
@@ -62,11 +66,15 @@ def find_candidate_boxes(
     height, width = work.shape
     frame_area = height * width
     min_area = max(400, int(frame_area * config.cluster_min_area_frac))
-    masks = build_candidate_masks(work, config)
     text_src = text_source if text_source is not None else work
+    masks = build_candidate_masks(work, config, gray=text_src)
     boxes = boxes_from_mask(masks.combined, min_area, config, frame_area)
     boxes.extend(boxes_from_mask(masks.black_hat, min_area, config, frame_area))
     boxes.extend(boxes_from_mask(text_density_mask(text_src, config), min_area, config, frame_area))
+    if masks.edge_density is not None:
+        boxes.extend(boxes_from_mask(masks.edge_density, min_area, config, frame_area))
+    if config.use_dog_text:
+        boxes.extend(boxes_from_mask(dog_text_mask(text_src, config), min_area, config, frame_area))
     return dedupe_boxes(boxes)
 
 

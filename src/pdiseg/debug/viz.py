@@ -9,7 +9,7 @@ from numpy.typing import NDArray
 
 from pdiseg.core.imaging import BBox, FrameInspection, crop, render_overlay
 from pdiseg.detection.detector import DetectionResult, inspect_detection
-from pdiseg.detection.masks import CandidateMasks, build_candidate_masks
+from pdiseg.detection.masks import CandidateMasks, build_candidate_masks, opened_background
 from pdiseg.detection.preprocess import PreprocessResult, preprocess_image
 from pdiseg.detection.scoring import ScoredCandidate
 
@@ -40,13 +40,22 @@ def draw_boxes(
 
 
 def visualize_masks(masks: CandidateMasks) -> dict[str, NDArray[np.uint8]]:
-    return {
+    panels: dict[str, NDArray[np.uint8]] = {
         "text_density": masks.text_density.astype(np.uint8) * 255,
         "dark_luma": masks.dark_luma.astype(np.uint8) * 255,
         "black_hat": masks.black_hat.astype(np.uint8) * 255,
         "glare": masks.glare.astype(np.uint8) * 255,
         "combined": masks.combined.astype(np.uint8) * 255,
     }
+    if masks.edge_density is not None:
+        panels["edge_density"] = masks.edge_density.astype(np.uint8) * 255
+    return panels
+
+
+def visualize_opened_background(gray: NDArray[np.uint8]) -> NDArray[np.uint8]:
+    from pdiseg.detection.config import DetectionConfig
+
+    return opened_background(gray, DetectionConfig())
 
 
 def debug_frame(
@@ -55,7 +64,7 @@ def debug_frame(
     from pdiseg.detection.config import DetectionConfig
 
     prep = preprocess_image(image)
-    masks = build_candidate_masks(prep.work, DetectionConfig())
+    masks = build_candidate_masks(prep.work, DetectionConfig(), gray=prep.gray)
     detection = inspect_detection(image)
     return detection, prep, masks
 
@@ -72,6 +81,7 @@ def save_debug_bundle(
     detection, prep, masks = debug_frame(image)
     iio.imwrite(output_dir / f"{stem}_source.png", image)
     iio.imwrite(output_dir / f"{stem}_work.png", prep.work)
+    iio.imwrite(output_dir / f"{stem}_opened_background.png", visualize_opened_background(prep.gray))
     iio.imwrite(
         output_dir / f"{stem}_overlay.png",
         render_overlay(
@@ -103,3 +113,22 @@ def scored_table(
         row.update(item.features)
         rows.append(row)
     return rows
+
+
+def feature_summary(scored: list[ScoredCandidate]) -> list[str]:
+    """Human-readable lines for notebook display (TASK-03/04/05 panels)."""
+    keys = (
+        "background_level",
+        "bright_on_dark",
+        "extent",
+        "bimodal_score",
+        "body_overlap",
+    )
+    lines: list[str] = []
+    for item in sorted(scored, key=lambda row: row.score, reverse=True)[:5]:
+        parts = [f"score={item.score:.3f}"]
+        for key in keys:
+            if key in item.features:
+                parts.append(f"{key}={item.features[key]:.3f}")
+        lines.append(" | ".join(parts))
+    return lines

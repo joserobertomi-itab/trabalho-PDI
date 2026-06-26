@@ -43,7 +43,7 @@ def inspect_detection(
     cfg = config or DetectionConfig()
     prep = preprocess_image(image, cfg)
     raw = find_candidate_boxes(prep.work, cfg, text_source=prep.gray)
-    geometry = keep_label_clusters(raw, cfg)
+    geometry = keep_label_clusters(raw, cfg, frame_width=image.shape[1])
     labels, scored, kept = postprocess_boxes(image, prep.work, geometry or raw, cfg)
     return DetectionResult(
         labels=labels,

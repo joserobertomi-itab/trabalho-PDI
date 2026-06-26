@@ -2,17 +2,19 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import NDArray
-from scipy.ndimage import sobel
+from scipy.ndimage import sobel, uniform_filter
+from skimage.filters import threshold_otsu
 
 from pdiseg.core.boxes import box_area
 from pdiseg.core.imaging import BBox
 
 from .config import DetectionConfig
-from .masks import glare_mask
+from .masks import dark_body_mask, glare_mask, opened_background
 
 
 @dataclass(frozen=True)
@@ -20,6 +22,30 @@ class ScoredCandidate:
     box: BBox
     score: float
     features: dict[str, float]
+
+
+def analyze_bimodality(
+    roi: NDArray[np.uint8], config: DetectionConfig
+) -> tuple[float, float, float]:
+    """Return (score, dark_fraction, contrast) for a bimodal dark+light region."""
+    if roi.size == 0:
+        return 0.0, 0.0, 0.0
+    try:
+        thresh = float(threshold_otsu(roi))  # type: ignore[no-untyped-call]
+    except ValueError:
+        thresh = float(np.mean(roi))
+    dark = roi[roi <= thresh]
+    light = roi[roi > thresh]
+    if dark.size == 0 or light.size == 0:
+        return 0.0, 0.0, 0.0
+    dark_frac = float(dark.size / roi.size)
+    light_frac = 1.0 - dark_frac
+    if min(dark_frac, light_frac) < config.bimodality_min_class_frac:
+        return 0.0, dark_frac, 0.0
+    contrast = float(light.mean() - dark.mean())
+    balance = 1.0 - abs(0.5 - dark_frac)
+    score = contrast * balance
+    return score, dark_frac, contrast
 
 
 def _ring_mean(image: NDArray[np.uint8], box: BBox, margin: int = 6) -> float:
@@ -40,6 +66,9 @@ def score_candidate(
     work: NDArray[np.uint8],
     box: BBox,
     config: DetectionConfig,
+    *,
+    opened: NDArray[np.uint8] | None = None,
+    body: NDArray[np.bool_] | None = None,
 ) -> ScoredCandidate:
     height, width = image.shape
     frame_area = height * width
@@ -57,8 +86,6 @@ def score_candidate(
     dark_density = float((region <= global_dark).mean())
 
     local = region.astype(np.float32)
-    from scipy.ndimage import uniform_filter
-
     local_mean = uniform_filter(local, size=min(config.text_local_window, max(3, min(w, h) // 3)))
     text_pixels = local > local_mean + config.text_offset * 0.55
     text_density = float(text_pixels.mean())
@@ -81,6 +108,29 @@ def score_candidate(
     ring_mean = _ring_mean(work, box)
     contrast = max(0.0, (ring_mean - inner_mean) / 128.0)
 
+    opened_patch = (
+        opened[y : y + h, x : x + w]
+        if opened is not None
+        else opened_background(image, config)[y : y + h, x : x + w]
+    )
+    background_level = float(opened_patch.mean())
+    background_score = max(0.0, (config.background_level_max - background_level) / config.background_level_max)
+    bright_on_dark = float((region_orig > opened_patch + config.bright_on_dark_offset).mean())
+
+    try:
+        fg_thresh = float(threshold_otsu(region_orig))  # type: ignore[no-untyped-call]
+    except ValueError:
+        fg_thresh = float(region_orig.mean())
+    extent = float((region_orig <= fg_thresh).mean()) if region_orig.size else 0.0
+    extent_score = math.exp(-((extent - config.extent_target) / 0.15) ** 2)
+
+    bimodal_raw, bimodal_dark_frac, bimodal_contrast = analyze_bimodality(region_orig, config)
+    bimodal_score = min(1.0, bimodal_raw / 80.0)
+
+    body_overlap = (
+        float(body[y : y + h, x : x + w].mean()) if body is not None else dark_density
+    )
+
     cx = (x + w / 2) / width
     cy = (y + h / 2) / height
     position_score = 1.0 - 0.35 * abs(cx - 0.52) - 0.25 * max(0.0, cy - 0.72)
@@ -101,15 +151,20 @@ def score_candidate(
         aspect_score *= max(0.0, config.max_aspect / elongation)
 
     score = (
-        0.22 * min(1.0, dark_density * 1.35)
-        + 0.20 * min(1.0, text_density * 3.5)
-        + 0.16 * min(1.0, edge_density * 2.5)
-        + 0.10 * min(1.0, texture)
-        + 0.14 * min(1.0, contrast)
-        + 0.10 * area_score
-        + 0.08 * aspect_score
-        + 0.08 * max(0.0, position_score)
-        - 0.45 * min(1.0, glare_fraction * 2.2)
+        0.17 * min(1.0, dark_density * 1.35)
+        + 0.15 * min(1.0, text_density * 3.5)
+        + 0.11 * min(1.0, edge_density * 2.5)
+        + 0.08 * min(1.0, texture)
+        + 0.09 * min(1.0, contrast)
+        + 0.07 * area_score
+        + 0.05 * aspect_score
+        + 0.05 * max(0.0, position_score)
+        + 0.07 * min(1.0, background_score)
+        + 0.08 * min(1.0, bright_on_dark / 0.20)
+        + 0.06 * extent_score
+        + 0.07 * bimodal_score
+        + 0.05 * min(1.0, body_overlap * 1.2)
+        - 0.40 * min(1.0, glare_fraction * 2.2)
     )
     if dark_density < 0.18:
         score *= 0.55
@@ -117,6 +172,8 @@ def score_candidate(
         score *= 0.65
     if glare_fraction > 0.35:
         score *= 0.5
+    if config.min_body_overlap > 0 and body_overlap < config.min_body_overlap:
+        score *= 0.45
     score = float(np.clip(score, 0.0, 1.0))
 
     features = {
@@ -131,6 +188,15 @@ def score_candidate(
         "position_score": position_score,
         "area_score": area_score,
         "aspect_score": aspect_score,
+        "background_level": background_level,
+        "background_score": background_score,
+        "bright_on_dark": bright_on_dark,
+        "extent": extent,
+        "extent_score": extent_score,
+        "bimodal_score": bimodal_score,
+        "bimodal_dark_frac": bimodal_dark_frac,
+        "bimodal_contrast": bimodal_contrast,
+        "body_overlap": body_overlap,
     }
     return ScoredCandidate(box=box, score=score, features=features)
 
@@ -141,4 +207,12 @@ def score_candidates(
     boxes: list[BBox],
     config: DetectionConfig,
 ) -> list[ScoredCandidate]:
-    return [score_candidate(image, work, box, config) for box in boxes]
+    if not boxes:
+        return []
+    opened = opened_background(image, config)
+    body: NDArray[np.bool_] | None = None
+    if config.min_body_overlap > 0:
+        body = dark_body_mask(image, config)
+    return [
+        score_candidate(image, work, box, config, opened=opened, body=body) for box in boxes
+    ]
