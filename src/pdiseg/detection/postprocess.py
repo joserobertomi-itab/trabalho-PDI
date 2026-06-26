@@ -75,6 +75,43 @@ def refine_to_name_label(
     return (x + xs.start, y + ys.start, rw, rh)
 
 
+def _passes_notebook_gates(item: ScoredCandidate, config: DetectionConfig) -> bool:
+    if not config.use_notebook_gates:
+        return True
+    features = item.features
+    bright = features.get("bright_on_dark", 0.0)
+    background = features.get("background_level", 255.0)
+    extent = features.get("extent", 0.0)
+    edge = features.get("edge_density", 0.0)
+    dark = features.get("dark_density", 0.0)
+    if dark >= 0.42 and bright >= config.gate_min_bright_on_dark * 0.85:
+        return True
+    if bright < config.gate_min_bright_on_dark:
+        return False
+    if background > config.gate_max_background_level:
+        return False
+    if extent < config.gate_min_extent:
+        return False
+    return edge >= config.gate_min_edge_density
+
+
+def _dedupe_scored(scored: list[ScoredCandidate], iou_threshold: float) -> list[ScoredCandidate]:
+    if not scored:
+        return []
+    boxes = [item.box for item in scored]
+    scores = [item.score for item in scored]
+    kept_boxes = non_max_suppression(boxes, scores, iou_threshold)
+    best: dict[BBox, ScoredCandidate] = {}
+    for item in scored:
+        if item.box not in kept_boxes:
+            continue
+        prev = best.get(item.box)
+        if prev is None or item.score > prev.score:
+            best[item.box] = item
+    order = {box: index for index, box in enumerate(kept_boxes)}
+    return sorted(best.values(), key=lambda item: order.get(item.box, 999))
+
+
 def _select_scored(
     scored: list[ScoredCandidate],
     threshold: float,
@@ -82,16 +119,24 @@ def _select_scored(
     width: int,
     height: int,
 ) -> list[BBox]:
-    filtered = [item for item in scored if item.score >= threshold]
-    filtered.sort(key=lambda item: item.score, reverse=True)
-    if len(filtered) > 1:
-        top_score = filtered[0].score
-        gap = max(0.05, 0.08 - 0.02 * (top_score - 0.55))
-        filtered = [filtered[0]] + [item for item in filtered[1:] if top_score - item.score <= gap]
+    if not scored:
+        return []
+    scored = _dedupe_scored(scored, iou_threshold=0.55)
+    scored.sort(key=lambda item: item.score, reverse=True)
+    top_score = scored[0].score
+    relative_floor = max(threshold, top_score * config.score_relative_min)
+    filtered = [item for item in scored if item.score >= relative_floor]
+    if not filtered:
+        filtered = [item for item in scored if item.score >= config.score_threshold_fallback]
+    if not filtered:
+        filtered = [scored[0]]
+    gated = [item for item in filtered if _passes_notebook_gates(item, config)]
+    if gated:
+        filtered = gated
     boxes = [item.box for item in filtered]
-    boxes = merge_nearby_boxes(boxes, config.merge_distance_frac, width, height)
     scores = [item.score for item in filtered]
-    if len(scores) != len(boxes):
+    if config.merge_distance_frac > 0:
+        boxes = merge_nearby_boxes(boxes, config.merge_distance_frac, width, height)
         score_map = {item.box: item.score for item in filtered}
         scores = [score_map.get(box, 0.4) for box in boxes]
     selected = non_max_suppression(boxes, scores, config.nms_iou)
@@ -137,8 +182,8 @@ def postprocess_boxes(
         selected = _fallback_boxes(work, config)
         used_fallback = bool(selected)
     refined = [refine_to_name_label(image, box, config) for box in selected]
-    refined = [pad_box(box, width, height, config.crop_padding_frac) for box in refined]
-    rescored = score_candidates(image, work, refined, config)
+    padded = [pad_box(box, width, height, config.crop_padding_frac) for box in refined]
+    rescored = score_candidates(image, work, padded, config)
     floor = config.refine_score_floor * (0.55 if used_fallback else 1.0)
     refined = [item.box for item in rescored if item.score >= floor]
     if not refined and rescored:
@@ -146,4 +191,6 @@ def postprocess_boxes(
         min_keep = 0.30
         if best.score >= min_keep:
             refined = [best.box]
+    if not refined and padded:
+        refined = padded
     return refined, scored, kept

@@ -104,7 +104,7 @@ def score_candidate(
     if dark_density > 0.72:
         glare_fraction *= 0.25
 
-    inner_mean = float(region.mean())
+    inner_mean = float(region_orig.mean())
     ring_mean = _ring_mean(work, box)
     contrast = max(0.0, (ring_mean - inner_mean) / 128.0)
 
@@ -174,11 +174,26 @@ def score_candidate(
         score *= 0.5
     if config.min_body_overlap > 0 and body_overlap < config.min_body_overlap:
         score *= 0.45
+    if inner_mean > 125:
+        score *= 0.60
+    elif inner_mean > 110 and dark_density < 0.35:
+        score *= 0.70
+    if y < 40 and h < 70:
+        score *= 0.45
+    if (
+        bright_on_dark >= config.gate_min_bright_on_dark
+        and background_level < config.gate_max_background_level
+        and extent >= config.gate_min_extent
+    ):
+        score = min(1.0, score * 1.12)
+    if background_level > 125 and bright_on_dark < 0.03:
+        score *= 0.35
     score = float(np.clip(score, 0.0, 1.0))
 
     features = {
         "area_frac": area_frac,
         "aspect": aspect,
+        "inner_mean": inner_mean,
         "dark_density": dark_density,
         "text_density": text_density,
         "edge_density": edge_density,

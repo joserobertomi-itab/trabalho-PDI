@@ -75,7 +75,7 @@ def find_candidate_boxes(
         boxes.extend(boxes_from_mask(masks.edge_density, min_area, config, frame_area))
     if config.use_dog_text:
         boxes.extend(boxes_from_mask(dog_text_mask(text_src, config), min_area, config, frame_area))
-    return dedupe_boxes(boxes)
+    return dedupe_boxes(boxes, iou_threshold=0.55)
 
 
 def detect_clusters(image: NDArray[np.uint8], config: DetectionConfig | None = None) -> list[BBox]:
