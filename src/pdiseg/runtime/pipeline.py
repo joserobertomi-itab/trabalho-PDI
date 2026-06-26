@@ -12,7 +12,7 @@ from numpy.typing import NDArray
 
 from pdiseg.core.imaging import BBox, crop
 from pdiseg.detection.detector import detect_name_labels
-from pdiseg.io.dataset import find_source_images, load_image
+from pdiseg.io.dataset import find_source_images, load_image, segmented_crop_filename
 
 
 @dataclass
@@ -47,7 +47,7 @@ def output_path(
     output_root: str | Path, class_name: str, source_path: str | Path, index: int
 ) -> Path:
     stem = Path(source_path).stem
-    return Path(output_root) / class_name / f"{stem}_segmentada_{index}.png"
+    return Path(output_root) / class_name / segmented_crop_filename(stem, index)
 
 
 def crop_and_save(

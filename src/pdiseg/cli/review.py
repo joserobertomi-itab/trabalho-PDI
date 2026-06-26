@@ -23,7 +23,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--result",
         default="result",
-        help="Optional segmentation output with *_segmentada_N.png crops.",
+        help="Optional segmentation output with *_segmented_N.png crops.",
     )
     parser.add_argument("--host", default="127.0.0.1", help="Bind address.")
     parser.add_argument("--port", type=int, default=8765, help="HTTP port.")

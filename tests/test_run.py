@@ -33,7 +33,7 @@ def test_run_mirrors_classes_and_writes_a_valid_crop_per_source(tmp_path):
     for klass, files in sources.items():
         for name in files:
             stem = Path(name).stem
-            produced = out / klass / f"{stem}_segmentada_1.png"
+            produced = out / klass / f"{stem}_segmented_1.png"
             assert produced.exists(), f"missing output for {klass}/{name}"
 
             data = iio.imread(produced)
@@ -50,10 +50,10 @@ def test_multiple_detections_are_numbered_from_one(tmp_path):
     out = tmp_path / "result"
     pdiseg.run(dataset, out, detector=two_boxes)
 
-    assert (out / "Moela" / "img003_segmentada_1.png").exists()
-    assert (out / "Moela" / "img003_segmentada_2.png").exists()
+    assert (out / "Moela" / "img003_segmented_1.png").exists()
+    assert (out / "Moela" / "img003_segmented_2.png").exists()
 
-    assert not (out / "Moela" / "img003_segmentada_0.png").exists()
+    assert not (out / "Moela" / "img003_segmented_0.png").exists()
 
 
 def test_run_crops_from_the_original_frame(tmp_path):
@@ -69,7 +69,7 @@ def test_run_crops_from_the_original_frame(tmp_path):
     out = tmp_path / "result"
     pdiseg.run(dataset, out, detector=box_detector)
 
-    written = iio.imread(out / "ClassA" / "img001_segmentada_1.png")
+    written = iio.imread(out / "ClassA" / "img001_segmented_1.png")
 
     assert written.shape == (5, 5)
     assert int(written.min()) == 200 and int(written.max()) == 200
@@ -277,4 +277,4 @@ def test_module_entry_point_runs_over_given_dirs(tmp_path):
     )
 
     assert result.returncode == 0, result.stderr
-    assert (out / "Peito_Congelado" / "img001_segmentada_1.png").exists()
+    assert (out / "Peito_Congelado" / "img001_segmented_1.png").exists()

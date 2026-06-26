@@ -17,7 +17,7 @@ def test_process_dataset_creates_result_tree(tmp_path):
 
     report = pdiseg.process_dataset(dataset.parent, tmp_path / "result")
     assert report.total_frames == 1
-    assert (tmp_path / "result" / "ClassA" / "img_segmentada_1.png").exists()
+    assert (tmp_path / "result" / "ClassA" / "img_segmented_1.png").exists()
 
 
 def test_saved_crops_are_non_empty(tmp_path):
@@ -28,7 +28,7 @@ def test_saved_crops_are_non_empty(tmp_path):
     iio.imwrite(dataset / "img.png", frame)
 
     pdiseg.run(dataset.parent, tmp_path / "result")
-    crop = iio.imread(tmp_path / "result" / "ClassA" / "img_segmentada_1.png")
+    crop = iio.imread(tmp_path / "result" / "ClassA" / "img_segmented_1.png")
     assert crop.size > 0
 
 

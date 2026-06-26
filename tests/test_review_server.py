@@ -35,7 +35,7 @@ def _write_bundle(tmp_path: Path) -> tuple[Path, Path, Path]:
     )
     class_result = tmp_path / "result" / "ClassA"
     class_result.mkdir(parents=True)
-    iio.imwrite(class_result / "f1_segmentada_1.png", frame[10:50, 10:50])
+    iio.imwrite(class_result / "f1_segmented_1.png", frame[10:50, 10:50])
     return dataset, calibration, tmp_path / "result"
 
 

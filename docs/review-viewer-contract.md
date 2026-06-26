@@ -1,22 +1,22 @@
 # Review viewer
 
-Ferramenta web para olhar source, overlay e crops. Não executa o detector.
+Web tool to inspect source frames, overlays, and crops. Does **not** run the detector.
 
-## Pastas
+## Folders
 
-| Pasta | Obrigatório | Conteúdo |
-|-------|-------------|----------|
-| `dataset/` | sim | Imagens originais |
-| `calibration/` | sim | `boxes.json`, `stats.csv` |
-| `result/` | não | `*_segmentada_N.png` |
+| Folder | Required | Contents |
+|--------|----------|----------|
+| `dataset/` | yes | Original images |
+| `calibration/` | yes | `boxes.json`, `stats.csv` |
+| `result/` | no | `*_segmented_N.png` |
 
-Gerar calibration:
+Generate calibration:
 
 ```sh
 make calibrate
 ```
 
-Gerar result:
+Generate result:
 
 ```sh
 make run
@@ -24,7 +24,7 @@ make run
 
 ## `boxes.json`
 
-Chave = caminho relativo ao dataset, ex. `Peito_Congelado/img001.jpg`:
+Keys are paths relative to the dataset, e.g. `Peito_Congelado/img001.jpg`:
 
 ```json
 {
@@ -36,24 +36,24 @@ Chave = caminho relativo ao dataset, ex. `Peito_Congelado/img001.jpg`:
 }
 ```
 
-Coordenadas `[x, y, largura, altura]` na imagem original.
+Coordinates are `[x, y, width, height]` on the original image.
 
-## Subir
+## Start server
 
 ```sh
 make review
 ```
 
-ou
+or
 
 ```sh
 uv run pdiseg-review --dataset data/Train_and_Validation --calibration calibration --result result
 ```
 
-Abrir http://127.0.0.1:8765/
+Open http://127.0.0.1:8765/
 
-## Sem algum arquivo
+## Missing files
 
-- Sem entrada no `boxes.json` → mostra source e crops do disco, sem overlay.
-- Sem PNG em `result/` → renderiza crop a partir da caixa verde se tiver metadata.
-- Sem source → lista o frame com aviso.
+- No `boxes.json` entry → shows source and on-disk crops, no overlay.
+- No PNG in `result/` → renders crop from green box metadata when available.
+- No source image → lists the frame with a warning.

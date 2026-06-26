@@ -95,7 +95,7 @@ def test_get_frame_finds_crops_from_result_when_boxes_missing(tmp_path):
     result_root = tmp_path / "result"
     class_result = result_root / "ClassA"
     class_result.mkdir(parents=True)
-    iio.imwrite(class_result / "f1_segmentada_1.png", np.full((8, 8), 200, dtype=np.uint8))
+    iio.imwrite(class_result / "f1_segmented_1.png", np.full((8, 8), 200, dtype=np.uint8))
 
     bundle = load_bundle(dataset, tmp_path / "calibration", result_root)
     frame = get_frame(bundle, "ClassA", "f1")

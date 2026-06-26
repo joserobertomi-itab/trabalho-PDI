@@ -12,6 +12,12 @@ from pdiseg.core.imaging import BBox
 
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png"}
 FPS_OVERLAY_REGION: BBox = (0, 0, 215, 48)
+SEGMENTED_CROP_GLOB = "*_segmented_*.png"
+
+
+def segmented_crop_filename(stem: str, index: int) -> str:
+    """Return ``{stem}_segmented_{index}.png`` (English crop naming under ``result/``)."""
+    return f"{stem}_segmented_{index}.png"
 
 
 def find_source_images(input_root: str | Path) -> list[Path]:

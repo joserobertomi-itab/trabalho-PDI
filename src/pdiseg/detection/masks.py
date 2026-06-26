@@ -64,7 +64,7 @@ def edge_density_mask(gray: NDArray[np.uint8], config: DetectionConfig) -> NDArr
 
 
 def dark_body_mask(gray: NDArray[np.uint8], config: DetectionConfig) -> NDArray[np.bool_]:
-    """Adaptive dark solid-body gate (segmenta_rotulo dark_body_mask, skimage stack)."""
+    """Adaptive dark solid-body gate (reference_segment_label dark_body_mask, scikit-image stack)."""
     from skimage.filters import threshold_local
 
     height, width = gray.shape
@@ -77,7 +77,7 @@ def dark_body_mask(gray: NDArray[np.uint8], config: DetectionConfig) -> NDArray[
 
 
 def dog_text_mask(gray: NDArray[np.uint8], config: DetectionConfig) -> NDArray[np.bool_]:
-    """DoG-style bright text on locally dark background (segmenta_rotulo L209-223)."""
+    """DoG-style bright text on locally dark background (reference_segment_label L209-223)."""
     height, width = gray.shape
     values = gray.astype(np.float32)
     sigma = min(config.dog_sigma, min(height, width) / 10.0)

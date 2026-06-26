@@ -1,16 +1,16 @@
-# Trabalho Prático 1 – Segmentação de Embalagens de Produtos Avícolas
+# Practical Assignment 1 — Poultry Product Packaging Segmentation
 
-## Objetivo
+## Objective
 
-Desenvolver uma solução capaz de localizar e segmentar automaticamente embalagens de produtos derivados de frango presentes em imagens capturadas em ambiente industrial.
+Build a solution that locates and segments poultry product packaging in images captured in an industrial environment.
 
-Nesta primeira etapa do projeto, não será realizada classificação/reconhecimento de texto (OCR). O foco exclusivo é a **segmentação das embalagens** presentes nas imagens.
+In this first project stage there is **no** text classification or OCR. The exclusive focus is **packaging segmentation** in the images.
 
-O conjunto de dados contém imagens de diferentes produtos, incluindo embalagens dos tipos **bandeja** e **selado**, distribuídas em diversas classes de produtos. Embora as pastas possuam o nome do produto, essa informação será utilizada apenas para organização dos resultados.
+The dataset contains images of different products, including **tray** and **sealed** packaging types, spread across product classes. Folder names reflect the product but are used **only** to organize results.
 
 ---
 
-## Classes Presentes na Base
+## Classes in the Dataset
 
 - Asas Resfriado Selado
 - Meio das Asas Congelado
@@ -33,24 +33,24 @@ O conjunto de dados contém imagens de diferentes produtos, incluindo embalagens
 
 ---
 
-## Descrição do Problema
+## Problem Description
 
-As imagens apresentam desafios típicos de ambientes industriais, incluindo:
+Images show typical industrial challenges:
 
-- Reflexos
-- Deformações da embalagem
-- Variações de iluminação
-- Diferenças de posicionamento e orientação dos produtos
+- Reflections
+- Package deformation
+- Lighting variation
+- Different product position and orientation
 
-O programa deverá percorrer todas as imagens existentes em todas as pastas do conjunto de dados, detectar a região correspondente à embalagem do produto com o nome, gerando uma ou mais imagens contendo apenas a parte da embalagem segmentada.
+The program must walk all images in all dataset folders, detect the region of the packaging that carries the product name, and write one or more crops containing only the segmented packaging area.
 
-> **Atenção:** Falsos positivos serão considerados como erro, ou seja, imagens produzidas sem o nome do produto, ou com nomes irrelevantes, como "só frango". As imagens segmentadas podem possuir uma parte do nome do produto (por exemplo, "asas" em uma imagem e "resfriada" em outra). Também não é necessário que as palavras estejam visíveis, apenas que a segmentação esteja na posição esperada.
+> **Note:** False positives count as errors — crops without the product name, or with irrelevant names (e.g. generic “chicken only”). Segmented images may contain only part of the name (e.g. “asas” in one crop and “resfriada” in another). Words need not be fully readable; the crop must cover the expected label region.
 
 ---
 
-## Estrutura de Arquivos
+## File Layout
 
-### Entrada
+### Input
 
 ```
 dataset/
@@ -62,17 +62,17 @@ dataset/
 └── ...
 ```
 
-### Saída
+### Output
 
-> **Nota:** neste repositório a pasta de saída foi padronizada como `result/` (inglês).
+> **Note:** This repository standardizes the output folder as `result/` and crop filenames as `{stem}_segmented_{N}.png` (English naming).
 
 ```
 result/
 ├── Peito_Congelado/
-│   ├── img001_segmentada_1.png
-│   ├── img001_segmentada_2.png
-│   ├── img002_segmentada_1.png
-│   ├── img003_segmentada_1.png
+│   ├── img001_segmented_1.png
+│   ├── img001_segmented_2.png
+│   ├── img002_segmented_1.png
+│   ├── img003_segmented_1.png
 │   └── ...
 ├── Moela/
 └── ...
@@ -80,40 +80,40 @@ result/
 
 ---
 
-## Restrições e Técnicas Permitidas
+## Constraints and Allowed Techniques
 
-**Não é permitido** utilizar conteúdos ainda não abordados na disciplina, nem bibliotecas que realizem segmentação automaticamente por IA.
+**Not allowed:** topics not yet covered in the course, or libraries that perform segmentation automatically via AI.
 
-**É permitido** qualquer técnica baseada exclusivamente no conteúdo estudado na **Parte 1** da disciplina, incluindo:
+**Allowed:** any technique from **Part 1** of the course only, including:
 
-- Espaços de cores
-- Limiarização
-- Segmentação
-- Operações morfológicas
-- Filtragem espacial
-- Transformações geométricas
-- Histogramas
+- Color spaces
+- Thresholding
+- Segmentation
+- Morphological operations
+- Spatial filtering
+- Geometric transforms
+- Histograms
 
-Algoritmos adicionais poderão ser utilizados desde que pertençam aos tópicos abordados na Parte 1 da disciplina.
-
----
-
-## Critério de Avaliação
-
-| Critério | Peso |
-|---|---|
-| Desempenho na Base Fornecida | 60% |
-| Avaliação Complementar (imagens inéditas) | 40% |
-
-### Detalhes
-
-1. **Desempenho na Base Fornecida (60%):** O algoritmo será executado sobre o conjunto de imagens disponibilizado.
-
-2. **Avaliação Complementar (40%):** No dia da apresentação, o algoritmo será executado em um conjunto de imagens inéditas, não disponibilizadas previamente. Nenhuma modificação poderá ser realizada no código durante a avaliação. O objetivo é medir a capacidade de **generalização** da solução.
+Additional algorithms are allowed if they belong to Part 1 topics.
 
 ---
 
-## Entregáveis
+## Grading Criteria
 
-- Submeter o **link do Colab** no Moodle, **ou** um **Docker Compose** com a solução.
-- Compartilhar o link do Colab com: [alessandro.rodrigues@ifg.edu.br](mailto:alessandro.rodrigues@ifg.edu.br)
+| Criterion | Weight |
+|-----------|--------|
+| Performance on provided dataset | 60% |
+| Complementary evaluation (unseen images) | 40% |
+
+### Details
+
+1. **Provided dataset (60%):** The algorithm runs on the released image set.
+
+2. **Complementary evaluation (40%):** On presentation day the algorithm runs on unseen images. **No code changes** are allowed during evaluation. The goal is to measure **generalization**.
+
+---
+
+## Deliverables
+
+- Submit the **Colab link** on Moodle, **or** a **Docker Compose** solution.
+- Share the Colab link with: [alessandro.rodrigues@ifg.edu.br](mailto:alessandro.rodrigues@ifg.edu.br)

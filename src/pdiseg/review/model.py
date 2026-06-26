@@ -9,9 +9,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from pdiseg.core.imaging import BBox, FrameInspection, inspection_from_json
+from pdiseg.io.dataset import SEGMENTED_CROP_GLOB
 
 _IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png"}
-_SEGMENTED_RE = re.compile(r"^(?P<stem>.+)_segmentada_(?P<index>\d+)$")
+_SEGMENTED_RE = re.compile(r"^(?P<stem>.+)_segmented_(?P<index>\d+)$")
 
 
 @dataclass(frozen=True)
@@ -180,7 +181,7 @@ def _frame_keys(bundle: ReviewBundle, class_name: str) -> set[str]:
     class_result = bundle.result_root / class_name
     if not class_result.is_dir():
         return keys
-    for path in class_result.glob("*_segmentada_*.png"):
+    for path in class_result.glob(SEGMENTED_CROP_GLOB):
         match = _SEGMENTED_RE.match(path.stem)
         if match is None:
             continue

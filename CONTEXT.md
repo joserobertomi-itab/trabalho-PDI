@@ -26,7 +26,7 @@ Class folders (names as in data): Asas Resfriado Selado, Meio das Asas Congelado
 ## I/O
 
 ```
-dataset/<Class>/<image>.jpg  →  result/<Class>/<stem>_segmentada_N.png
+dataset/<Class>/<image>.jpg  →  result/<Class>/<stem>_segmented_N.png
 ```
 
 ## Allowed techniques

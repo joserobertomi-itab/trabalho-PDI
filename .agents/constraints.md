@@ -27,5 +27,5 @@
 ## Docker / delivery
 
 - Default data path: `data/Train_and_Validation`.
-- Output: `result/<class>/<stem>_segmentada_N.png`.
+- Output: `result/<class>/<stem>_segmented_N.png`.
 - Compose profile `tools` for `calibrate` and `review` — flag goes **before** subcommand: `docker compose --profile tools up calibrate`.

@@ -34,7 +34,7 @@ export CALIB="$CALIB_DIR"
 docker compose build pipeline
 
 docker compose up --no-build pipeline
-test -f "$OUT_DIR/SmokeClass/frame_segmentada_1.png"
+test -f "$OUT_DIR/SmokeClass/frame_segmented_1.png"
 
 docker compose --profile tools run --rm calibrate
 test -f "$CALIB_DIR/boxes.json"

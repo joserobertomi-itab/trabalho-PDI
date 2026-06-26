@@ -13,23 +13,23 @@ COMPOSE ?= docker compose
 	docker-build docker-up docker-calibrate docker-review docker-export docker-smoke \
 	agent-check clean
 
-help: ## Lista todos os targets (rode sem argumentos)
+help: ## List all targets (run with no arguments)
 	@grep -E '^[a-zA-Z0-9_.-]+:.*?## .*$$' $(MAKEFILE_LIST) \
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-22s\033[0m %s\n", $$1, $$2}'
 	@echo ""
-	@echo "Variáveis (sobrescreva na linha de comando):"
+	@echo "Variables (override on the command line):"
 	@echo "  DATA=$(DATA)   OUT=$(OUT)   CALIB=$(CALIB)   LIMIT=$(LIMIT)   PORT=$(PORT)"
-	@echo "  Ex.: make run DATA=dataset OUT=result"
+	@echo "  Example: make run DATA=dataset OUT=result"
 
-setup: sync ## Instala dependências (uv sync --extra dev)
+setup: sync ## Install dependencies (uv sync --extra dev)
 
-sync: ## Sincroniza o venv com uv.lock
+sync: ## Sync venv with uv.lock
 	$(UV) sync --extra dev
 
-lock: ## Atualiza uv.lock depois de mudar pyproject.toml
+lock: ## Refresh uv.lock after pyproject.toml changes
 	$(UV) lock
 
-test: ## Roda pytest com cobertura
+test: ## Run pytest with coverage
 	$(PY) pytest --cov=pdiseg --cov-report=term-missing -q
 
 lint: ## Ruff check
@@ -39,45 +39,45 @@ format: ## Ruff format + fix
 	$(PY) ruff format src tests
 	$(PY) ruff check --fix src tests
 
-typecheck: ## mypy em pdiseg/
+typecheck: ## mypy on pdiseg/
 	$(PY) mypy src/pdiseg
 
-check: lint typecheck test ## lint + mypy + testes
+check: lint typecheck test ## lint + mypy + tests
 
-ci: sync check ## Igual ao CI local
+ci: sync check ## Local CI parity
 
-run: ## Segmenta DATA → OUT
+run: ## Segment DATA → OUT
 	$(PY) pdiseg $(DATA) $(OUT)
 
-calibrate: ## Gera calibration/ (overlays, boxes.json, stats.csv)
+calibrate: ## Write calibration/ (overlays, boxes.json, stats.csv)
 	$(PY) pdiseg-calibrate $(DATA) $(CALIB) --per-class-limit $(LIMIT)
 
-review: ## Abre o viewer em http://127.0.0.1:$(PORT)/
+review: ## Open viewer at http://127.0.0.1:$(PORT)/
 	$(PY) pdiseg-review --dataset $(DATA) --calibration $(CALIB) --result $(OUT) --port $(PORT)
 
-docker-build: ## Build da imagem pdiseg:latest
+docker-build: ## Build pdiseg:latest image
 	$(COMPOSE) build pipeline
 
-docker-up: docker-build ## Roda o pipeline no Docker
+docker-up: docker-build ## Run pipeline in Docker
 	DATA=./$(DATA) OUT=./$(OUT) $(COMPOSE) up --build pipeline
 
-docker-calibrate: docker-build ## Calibrate no Docker
+docker-calibrate: docker-build ## Calibrate in Docker
 	DATA=./$(DATA) CALIB=./$(CALIB) LIMIT=$(LIMIT) $(COMPOSE) --profile tools run --rm calibrate
 
-docker-review: docker-build ## Review viewer no Docker (porta $(PORT))
+docker-review: docker-build ## Review viewer in Docker (port $(PORT))
 	DATA=./$(DATA) OUT=./$(OUT) CALIB=./$(CALIB) PORT=$(PORT) \
 		DOCKER_UID=$$(id -u) DOCKER_GID=$$(id -g) \
 		$(COMPOSE) --profile tools up review
 
-docker-export: ## Copia volumes nomeados para ./result no host
+docker-export: ## Copy named volumes to ./result on host
 	bash scripts/docker-export-artifacts.sh
 
-docker-smoke: ## Teste E2E do Compose (dataset sintético)
+docker-smoke: ## Compose E2E test (synthetic dataset)
 	bash scripts/docker-smoke.sh
 
-agent-check: ## Valida estrutura do harness (.agents, skills, rules)
+agent-check: ## Validate agent harness (.agents, skills, rules)
 	bash scripts/agent-harness-check.sh
 
-clean: ## Apaga result/, calibration/, caches
+clean: ## Remove result/, calibration/, caches
 	rm -rf $(OUT) $(CALIB) .docker-smoke .pytest_cache .ruff_cache .mypy_cache htmlcov .coverage coverage.xml
 	find . -type d -name __pycache__ -prune -exec rm -rf {} +

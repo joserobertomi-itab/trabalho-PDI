@@ -22,7 +22,7 @@ def main(argv: list[str] | None = None) -> None:
         "output_root",
         nargs="?",
         default="result",
-        help="Where to write <Class>/<source>_segmentada_<N>.png crops.",
+        help="Where to write <Class>/<source>_segmented_<N>.png crops.",
     )
     args = parser.parse_args(argv)
 

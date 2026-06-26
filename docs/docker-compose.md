@@ -1,6 +1,6 @@
 ## Docker Compose
 
-### Entrega
+### Delivery
 
 ```sh
 mkdir -p result calibration
@@ -8,9 +8,9 @@ cp .env.example .env
 docker compose up --build
 ```
 
-### Volumes nomeados (pipeline + review)
+### Named volumes (pipeline + review)
 
-No `.env`:
+In `.env`:
 
 ```env
 OUT=pdiseg-result
@@ -24,16 +24,16 @@ docker compose --profile tools up review
 make docker-export
 ```
 
-| `OUT` | Uso |
+| `OUT` | Use |
 |-------|-----|
-| `./result` | Entrega — professor vê pasta no host |
-| `pdiseg-result` | Mesmo volume entre pipeline e review |
+| `./result` | Delivery — professor sees folder on host |
+| `pdiseg-result` | Same volume shared by pipeline and review |
 
-### Serviços
+### Services
 
-| Serviço | Comando | Função |
-|---------|---------|--------|
-| `pipeline` | `docker compose up` | Segmenta → `/data/output` |
+| Service | Command | Role |
+|---------|---------|------|
+| `pipeline` | `docker compose up` | Segment → `/data/output` |
 | `calibrate` | `docker compose --profile tools run --rm calibrate` | `boxes.json`, `stats.csv` |
 | `review` | `docker compose --profile tools up review` | http://localhost:8765/ |
 
@@ -47,8 +47,8 @@ make docker-export
 make docker-smoke
 ```
 
-Variáveis: `DATA`, `OUT`, `CALIB`, `LIMIT`, `PORT` — ver README.
+Variables: `DATA`, `OUT`, `CALIB`, `LIMIT`, `PORT` — see README.
 
-### Dataset novo (avaliação complementar)
+### New dataset (complementary evaluation)
 
-Mesma estrutura de pastas em `dataset/`, roda de novo sem mudar código.
+Same folder structure under `dataset/`; re-run without code changes.
