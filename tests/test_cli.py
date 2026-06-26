@@ -18,7 +18,7 @@ def test_pdiseg_module_help_exits_zero():
 
 def test_calibrate_cli_help_exits_zero():
     result = subprocess.run(
-        [sys.executable, "-m", "pdiseg.calibrate_cli", "--help"],
+        [sys.executable, "-m", "pdiseg.cli.calibrate", "--help"],
         capture_output=True,
         text=True,
         cwd=_REPO_ROOT,
@@ -29,7 +29,7 @@ def test_calibrate_cli_help_exits_zero():
 
 def test_calibrate_console_entry_help_exits_zero():
     result = subprocess.run(
-        [sys.executable, "-m", "pdiseg.calibrate_cli", "--help"],
+        [sys.executable, "-m", "pdiseg.cli.calibrate", "--help"],
         capture_output=True,
         text=True,
         cwd=_REPO_ROOT,

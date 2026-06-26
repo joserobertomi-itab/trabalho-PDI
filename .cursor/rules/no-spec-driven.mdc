@@ -1,0 +1,13 @@
+---
+description: No spec-driven development — issues and domain docs, not specs/
+alwaysApply: true
+---
+
+# No spec-driven development
+
+- Do **not** require `specs/`, PRDs, or spec approval gates before implementation.
+- Source of truth: GitHub issues, `CONTEXT.md`, `docs/adr/`, and existing code.
+- Do not create `specs/` or spec templates unless the user explicitly asks.
+- ADRs are for **decisions**, not feature specs.
+
+Work incrementally: read issue → read code → minimal change → `make check`.

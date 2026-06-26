@@ -1,0 +1,10 @@
+---
+description: Language policy — English artifacts, Portuguese chat
+alwaysApply: true
+---
+
+# Language
+
+- Committed files (docs, ADRs, comments, commit messages, issue bodies): **English**.
+- Conversation with the user: **Brazilian Portuguese**.
+- Skills that emit artifacts must write English even if the prompt was in Portuguese.

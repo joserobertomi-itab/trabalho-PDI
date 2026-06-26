@@ -10,7 +10,8 @@ COMPOSE ?= docker compose
 .DEFAULT_GOAL := help
 
 .PHONY: help setup sync lock test lint format typecheck check ci run calibrate review \
-	docker-build docker-up docker-calibrate docker-review docker-export docker-smoke clean
+	docker-build docker-up docker-calibrate docker-review docker-export docker-smoke \
+	agent-check clean
 
 help: ## Lista todos os targets (rode sem argumentos)
 	@grep -E '^[a-zA-Z0-9_.-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -32,14 +33,14 @@ test: ## Roda pytest com cobertura
 	$(PY) pytest --cov=pdiseg --cov-report=term-missing -q
 
 lint: ## Ruff check
-	$(PY) ruff check pdiseg tests
+	$(PY) ruff check src tests
 
 format: ## Ruff format + fix
-	$(PY) ruff format pdiseg tests
-	$(PY) ruff check --fix pdiseg tests
+	$(PY) ruff format src tests
+	$(PY) ruff check --fix src tests
 
 typecheck: ## mypy em pdiseg/
-	$(PY) mypy pdiseg
+	$(PY) mypy src/pdiseg
 
 check: lint typecheck test ## lint + mypy + testes
 
@@ -73,6 +74,9 @@ docker-export: ## Copia volumes nomeados para ./result no host
 
 docker-smoke: ## Teste E2E do Compose (dataset sintético)
 	bash scripts/docker-smoke.sh
+
+agent-check: ## Valida estrutura do harness (.agents, skills, rules)
+	bash scripts/agent-harness-check.sh
 
 clean: ## Apaga result/, calibration/, caches
 	rm -rf $(OUT) $(CALIB) .docker-smoke .pytest_cache .ruff_cache .mypy_cache htmlcov .coverage coverage.xml

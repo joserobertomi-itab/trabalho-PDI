@@ -1,0 +1,22 @@
+---
+description: Segmentation pipeline modules and extension points
+globs: src/pdiseg/**/*.py
+alwaysApply: false
+---
+
+# Pipeline layout
+
+| Stage | Module |
+|-------|--------|
+| Load | `io.dataset.load_image` |
+| Preprocess | `detection.preprocess.preprocess_image` |
+| Masks | `detection.masks.build_candidate_masks` |
+| Candidates | `detection.candidates.find_candidate_boxes` (pass `text_source=prep.gray`) |
+| Score | `detection.scoring.score_candidate` |
+| Post | `detection.postprocess.postprocess_boxes` |
+| API | `detection.detector.detect_name_labels` |
+| Batch | `runtime.pipeline.process_dataset` |
+
+Tune thresholds in `detection.config.DetectionConfig`. Package root: `src/pdiseg/`. See `docs/src/ARCHITECTURE.md`.
+
+After changing scoring/postprocess, run `tests/test_run.py` and `tests/test_detector_validation.py`.

@@ -1,0 +1,14 @@
+---
+description: Docker Compose and Makefile conventions
+globs: "{docker-compose.yml,Dockerfile,Makefile,scripts/**}"
+alwaysApply: false
+---
+
+# Docker Compose
+
+- Project name: `pdiseg` (compose `name:`).
+- Services: `pipeline` (default), `calibrate` + `review` in profile **`tools`**.
+- Global flag order: `docker compose --profile tools <subcommand> ...`
+- Wrong: `docker compose up --profile tools ...`
+
+Prefer `make docker-up`, `make docker-calibrate`, `make docker-review` for documented env vars (`DATA`, `OUT`, `CALIB`, `PORT`).

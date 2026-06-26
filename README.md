@@ -159,6 +159,7 @@ Rode `make` ou `make help` para listar tudo.
 | `make format` | ruff format |
 | `make typecheck` | mypy |
 | `make check` | lint + mypy + testes |
+| `make agent-check` | valida harness de agentes (`.agents/`, skills) |
 | `make clean` | apaga `result/`, `calibration/`, caches |
 
 ### CLIs (sem Make)
@@ -178,7 +179,47 @@ uv run pdiseg-review --dataset DATA --calibration CALIB --result OUT [--port 876
 
 ---
 
-## 10. Entrega
+## 10. Pipeline modular e debug
+
+A detecção está modularizada em `src/pdiseg/`:
+
+| Função | Módulo |
+|--------|--------|
+| `load_image` | `io/dataset.py` |
+| `preprocess_image` | `detection/preprocess.py` |
+| `build_candidate_masks` | `detection/masks.py` |
+| `find_candidate_boxes` | `detection/candidates.py` |
+| `score_candidate` | `detection/scoring.py` |
+| `postprocess_boxes` | `detection/postprocess.py` |
+| `crop_and_save` / `process_dataset` | `runtime/pipeline.py` |
+| `detect_name_labels` | `detection/detector.py` |
+
+Mapa completo: [`docs/src/ARCHITECTURE.md`](./docs/src/ARCHITECTURE.md).
+
+Detalhes das melhorias: [docs/PIPELINE_IMPROVEMENTS.md](./docs/PIPELINE_IMPROVEMENTS.md).
+
+### Notebook de debug
+
+```sh
+make setup
+uv run jupyter notebook debug_pipeline_segmentacao.ipynb
+```
+
+O notebook cobre setup, diagnóstico da base, máscaras, scoring, pós-processamento, salvamento em `result/` e relatório por classe. Imagens de debug opcionais vão para `debug_result/` (separado do entregável).
+
+### Harness para IA
+
+- Entrada: [`AGENTS.md`](./AGENTS.md) e [`.agents/`](./.agents/)
+- Skills: [`.cursor/skills/`](./.cursor/skills/) — ex.: `pdiseg-pipeline`, `pdiseg-debug-notebook`
+- Regras: [`.cursor/rules/`](./.cursor/rules/)
+- Guia: [`docs/agents/harness.md`](./docs/agents/harness.md)
+- Validar: `make agent-check`
+
+Sem spec-driven development — issues + `CONTEXT.md` + ADRs.
+
+---
+
+## 11. Entrega
 
 Colab no Moodle **ou** Docker Compose.
 

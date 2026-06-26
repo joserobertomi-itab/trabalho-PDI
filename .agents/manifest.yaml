@@ -1,0 +1,57 @@
+# Agent harness manifest — pdiseg (PDI packaging segmentation)
+# No spec-driven development: work from issues, CONTEXT.md, ADRs, and code.
+
+version: 1
+project: pdiseg
+language:
+  artifacts: en
+  user_chat: pt-BR
+
+entrypoints:
+  agents: AGENTS.md
+  context: CONTEXT.md
+  constraints: .agents/constraints.md
+  harness_doc: docs/agents/harness.md
+
+roles:
+  - id: engineer
+    path: .agents/roles/engineer.md
+  - id: reviewer
+    path: .agents/roles/reviewer.md
+  - id: debugger
+    path: .agents/roles/debugger.md
+
+workflows:
+  - id: pipeline-change
+    path: .agents/workflows/pipeline-change.md
+  - id: debug-segmentation
+    path: .agents/workflows/debug-segmentation.md
+  - id: docker-and-make
+    path: .agents/workflows/docker-and-make.md
+  - id: issue-triage
+    path: .agents/workflows/issue-triage.md
+  - id: verify-before-done
+    path: .agents/workflows/verify-before-done.md
+
+cursor:
+  rules_dir: .cursor/rules/
+  skills_dir: .cursor/skills/
+
+skills:
+  - pdiseg-pipeline
+  - pdiseg-debug-notebook
+  - pdiseg-calibrate-review
+  - pdiseg-docker
+  - grill-with-docs
+  - triage-issue
+  - run-verification
+
+docs:
+  - docs/agents/domain.md
+  - docs/agents/issue-tracker.md
+  - docs/agents/triage-labels.md
+  - docs/agents/harness.md
+
+verification:
+  script: scripts/agent-harness-check.sh
+  make_target: agent-check

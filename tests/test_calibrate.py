@@ -143,7 +143,7 @@ def test_calibrate_entry_point_runs_over_given_dirs(tmp_path):
     out = tmp_path / "calibration"
 
     result = subprocess.run(
-        [sys.executable, "-m", "pdiseg.calibrate_cli", str(dataset), str(out)],
+        [sys.executable, "-m", "pdiseg.cli.calibrate", str(dataset), str(out)],
         capture_output=True,
         text=True,
         cwd=_REPO_ROOT,

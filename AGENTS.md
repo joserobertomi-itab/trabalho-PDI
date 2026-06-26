@@ -1,21 +1,59 @@
-## Language policy
+# Agent harness — pdiseg
 
-- All committed artifacts are written in English: CLAUDE.md/AGENTS.md, CONTEXT.md,
-  ADRs, docs/, specs, PRDs, issue titles/bodies, commit messages, code comments.
-- Day-to-day conversation with the user is in Brazilian Portuguese.
-- When a skill produces an artifact (to-issues, to-prd, triage, ADRs, etc.),
-  write the artifact in English even if the prompt was in Portuguese.
+Entry point for AI assistants (Cursor, Claude Code, etc.). **No spec-driven development** — work from issues, `CONTEXT.md`, ADRs, and code.
 
-## Agent skills
+## Language
 
-### Issue tracker
+- Committed artifacts: **English**
+- User chat: **Brazilian Portuguese**
 
-Issues and PRDs are tracked in GitHub Issues via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+## Quick start
 
-### Triage labels
+1. Read `CONTEXT.md` (domain glossary).
+2. Read `.agents/constraints.md` (hard limits).
+3. Pick a workflow from `.agents/workflows/` or a skill from `.cursor/skills/`.
+4. Before done: skill **run-verification** or `make check`.
 
-The repo uses the default triage label vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and `wontfix`. See `docs/agents/triage-labels.md`.
+## Harness layout
 
-### Domain docs
+| Path | Purpose |
+|------|---------|
+| `.agents/manifest.yaml` | Index of roles, workflows, skills |
+| `.agents/roles/` | engineer, reviewer, debugger |
+| `.agents/workflows/` | Task playbooks |
+| `.cursor/rules/` | Cursor rules (`.mdc`) |
+| `.cursor/skills/` | Invokable skills (`SKILL.md`) |
+| `docs/agents/` | Issue tracker, triage, harness doc |
 
-This repo uses a single-context domain docs layout: root `CONTEXT.md` plus root `docs/adr/`. See `docs/agents/domain.md`.
+Full guide: `docs/agents/harness.md`.  
+Source layout: `docs/src/ARCHITECTURE.md`.
+
+## Skills (invoke by name)
+
+| Skill | Use when |
+|-------|----------|
+| `pdiseg-pipeline` | Changing detection / scoring / config |
+| `pdiseg-debug-notebook` | Visual debug, masks, scores |
+| `pdiseg-calibrate-review` | Overlays, boxes.json, review UI |
+| `pdiseg-docker` | Compose, Makefile docker targets |
+| `grill-with-docs` | Update CONTEXT / ADRs lazily |
+| `triage-issue` | GitHub issues + labels via `gh` |
+| `run-verification` | `make check`, tests, smoke |
+
+## Issue tracker
+
+GitHub Issues via `gh` — see `docs/agents/issue-tracker.md`.
+
+## Triage labels
+
+`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix` — see `docs/agents/triage-labels.md`.
+
+## Domain docs
+
+Root `CONTEXT.md` + `docs/adr/` — see `docs/agents/domain.md`.
+
+## Verify harness
+
+```sh
+make agent-check
+```

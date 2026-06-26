@@ -1,3 +1,5 @@
+"""CLI entry: start the FastAPI review viewer."""
+
 from __future__ import annotations
 
 import argparse

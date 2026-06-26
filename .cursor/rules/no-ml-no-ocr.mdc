@@ -1,0 +1,13 @@
+---
+description: Academic PDI constraints — no OCR, no ML, no class leakage
+alwaysApply: true
+---
+
+# Detector constraints
+
+- Classical image processing only (see `CONTEXT.md` allowed techniques).
+- Do **not** add OCR, trained models, or cloud vision APIs.
+- Do **not** use dataset folder / class name inside detection logic.
+- Crops must come from the original frame (`pdiseg.pipeline.crop_and_save`).
+
+When suggesting improvements, prefer masks, scoring, morphology — not deep learning.

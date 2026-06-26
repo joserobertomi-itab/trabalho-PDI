@@ -13,7 +13,7 @@ COPY pyproject.toml uv.lock README.md ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-install-project --no-dev
 
-COPY pdiseg/ pdiseg/
+COPY src/pdiseg/ src/pdiseg/
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
@@ -33,7 +33,7 @@ RUN apt-get update \
 WORKDIR /app
 
 COPY --from=builder --chown=pdiseg:pdiseg /app/.venv /app/.venv
-COPY --chown=pdiseg:pdiseg pdiseg/ pdiseg/
+COPY --chown=pdiseg:pdiseg src/pdiseg/ src/pdiseg/
 COPY --chown=pdiseg:pdiseg pyproject.toml README.md CONTEXT.md ./
 COPY scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 

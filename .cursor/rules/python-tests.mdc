@@ -1,0 +1,15 @@
+---
+description: Python style — uv, ruff, mypy, pytest
+globs: "{src/pdiseg,tests}/**/*.py"
+alwaysApply: false
+---
+
+# Python
+
+- Run via `uv run` / `make`; deps in `pyproject.toml`.
+- `make format` before commit if touching Python.
+- Type hints on public functions; mypy strict on `pdiseg/`.
+- Tests in `tests/` mirror CLI and pipeline contracts.
+- Minimal scope: no unrelated refactors in the same diff.
+
+Coverage gate: 80% on `pdiseg/` (`make test`).

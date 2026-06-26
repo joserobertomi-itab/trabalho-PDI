@@ -1,9 +1,11 @@
+"""CLI entry: write calibration artifacts."""
+
 from __future__ import annotations
 
 import argparse
 from typing import Literal
 
-from .calibrate import calibrate
+from pdiseg.calibration.service import calibrate
 
 
 def main(argv: list[str] | None = None) -> None:

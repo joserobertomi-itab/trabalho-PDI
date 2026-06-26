@@ -1,3 +1,5 @@
+"""FastAPI app serving review API and static UI."""
+
 from __future__ import annotations
 
 import io
@@ -9,7 +11,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from numpy.typing import NDArray
 
-from pdiseg.imaging import FrameInspection, crop, render_overlay
+from pdiseg.core.imaging import FrameInspection, crop, render_overlay
 from pdiseg.review.model import (
     FrameReview,
     ReviewBundle,

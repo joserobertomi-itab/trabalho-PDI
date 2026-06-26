@@ -1,8 +1,10 @@
+"""CLI entry: segment a dataset directory tree."""
+
 from __future__ import annotations
 
 import argparse
 
-from .pipeline import run
+from pdiseg.runtime.pipeline import run
 
 
 def main(argv: list[str] | None = None) -> None:

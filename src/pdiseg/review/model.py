@@ -1,3 +1,5 @@
+"""Load calibration bundle and resolve frames for the review UI."""
+
 from __future__ import annotations
 
 import csv
@@ -6,7 +8,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from pdiseg.imaging import BBox, FrameInspection, inspection_from_json
+from pdiseg.core.imaging import BBox, FrameInspection, inspection_from_json
 
 _IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png"}
 _SEGMENTED_RE = re.compile(r"^(?P<stem>.+)_segmentada_(?P<index>\d+)$")
