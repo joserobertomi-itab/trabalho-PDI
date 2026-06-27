@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 
+from pdiseg.core.acceleration import log_acceleration_once
+from pdiseg.runtime.env import env_int
 from pdiseg.runtime.pipeline import run
 
 
@@ -42,7 +44,14 @@ def main(argv: list[str] | None = None) -> None:
         default=25,
         help="Print progress every N images to stderr; use 0 to disable.",
     )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=env_int("PDISEG_WORKERS", 1),
+        help="Number of images to process concurrently (default: PDISEG_WORKERS or 1).",
+    )
     args = parser.parse_args(argv)
+    log_acceleration_once()
 
     summary = run(
         args.input_root,
@@ -50,6 +59,7 @@ def main(argv: list[str] | None = None) -> None:
         limit=args.limit,
         offset=args.offset,
         progress_every=args.progress_every,
+        workers=args.workers,
     )
     print(
         f"Processed {summary.images_processed} images, "

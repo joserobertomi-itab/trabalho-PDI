@@ -1,16 +1,30 @@
+-include .env
+
 UV      ?= uv
 PY      := $(UV) run
+HOST_CPUS := $(shell nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)
+DEFAULT_HALF_CPUS := $(shell awk 'BEGIN { n=$(HOST_CPUS); v=n/2; if (v<1) v=1; printf "%.1f", v }')
+DEFAULT_WORKERS := $(shell awk 'BEGIN { n=$(HOST_CPUS); v=int(n/2); if (v<1) v=1; if (v>8) v=8; print v }')
 DATA    ?= data/Train_and_Validation
 OUT     ?= result
 CALIB   ?= calibration
-LIMIT   ?= 3
+LIMIT   ?= 9999
 MAX_IMAGES ?=
 OFFSET ?= 0
 PROGRESS_EVERY ?= 25
 THREADS ?= 1
-DOCKER_NICE ?= 5
+WORKERS ?= $(DEFAULT_WORKERS)
+PDISEG_BACKEND ?= auto
+PDISEG_BACKEND_LOG ?= 1
+DOCKER_GPU ?= auto
+DOCKER_CPUS ?= $(DEFAULT_HALF_CPUS)
+DOCKER_MEMORY ?= 4g
+DOCKER_NICE ?= 10
 PORT    ?= 8765
 COMPOSE ?= docker compose
+DOCKER_GPU_AVAILABLE := $(shell if command -v nvidia-smi >/dev/null 2>&1 && docker info --format '{{json .Runtimes}}' 2>/dev/null | grep -q '"nvidia"'; then echo 1; else echo 0; fi)
+USE_DOCKER_GPU := $(if $(filter 1 true yes on,$(DOCKER_GPU)),1,$(if $(filter 0 false no off,$(DOCKER_GPU)),0,$(DOCKER_GPU_AVAILABLE)))
+COMPOSE_RUN = $(COMPOSE) $(if $(filter 1,$(USE_DOCKER_GPU)),-f docker-compose.yml -f docker-compose.gpu.yml,)
 
 .DEFAULT_GOAL := help
 
@@ -24,9 +38,10 @@ help: ## List all targets (run with no arguments)
 	@echo ""
 	@echo "Variables (override on the command line):"
 	@echo "  DATA=$(DATA)   OUT=$(OUT)   CALIB=$(CALIB)   LIMIT=$(LIMIT)   MAX_IMAGES=$(MAX_IMAGES)   OFFSET=$(OFFSET)   PROGRESS_EVERY=$(PROGRESS_EVERY)"
-	@echo "  THREADS=$(THREADS)   DOCKER_NICE=$(DOCKER_NICE)   PORT=$(PORT)"
+	@echo "  THREADS=$(THREADS)   WORKERS=$(WORKERS)   PDISEG_BACKEND=$(PDISEG_BACKEND)   DOCKER_GPU=$(DOCKER_GPU)   USE_DOCKER_GPU=$(USE_DOCKER_GPU)"
+	@echo "  DOCKER_CPUS=$(DOCKER_CPUS)   DOCKER_MEMORY=$(DOCKER_MEMORY)   DOCKER_NICE=$(DOCKER_NICE)   PORT=$(PORT)"
 	@echo "  Example: make run DATA=dataset OUT=result MAX_IMAGES=50 OFFSET=0"
-	@echo "  Docker all images: make docker-up THREADS=1 DOCKER_NICE=5 PROGRESS_EVERY=10"
+	@echo "  Docker all images, 50% CPU + GPU auto: make docker-up"
 
 setup: sync kernel ## Install dependencies (uv sync --extra dev)
 
@@ -57,10 +72,10 @@ check: lint typecheck test ## lint + mypy + tests
 ci: sync check ## Local CI parity
 
 run: ## Segment DATA → OUT
-	$(PY) pdiseg $(DATA) $(OUT) $(if $(MAX_IMAGES),--limit $(MAX_IMAGES),) --offset $(OFFSET) --progress-every $(PROGRESS_EVERY)
+	$(PY) pdiseg $(DATA) $(OUT) $(if $(MAX_IMAGES),--limit $(MAX_IMAGES),) --offset $(OFFSET) --progress-every $(PROGRESS_EVERY) --workers $(WORKERS)
 
 calibrate: ## Write calibration/ (overlays, boxes.json, stats.csv)
-	$(PY) pdiseg-calibrate $(DATA) $(CALIB) --per-class-limit $(LIMIT) $(if $(MAX_IMAGES),--limit $(MAX_IMAGES),) --offset $(OFFSET) --progress-every $(PROGRESS_EVERY)
+	$(PY) pdiseg-calibrate $(DATA) $(CALIB) --per-class-limit $(LIMIT) $(if $(MAX_IMAGES),--limit $(MAX_IMAGES),) --offset $(OFFSET) --progress-every $(PROGRESS_EVERY) --workers $(WORKERS)
 
 review: ## Open viewer at http://127.0.0.1:$(PORT)/
 	$(PY) pdiseg-review --dataset $(DATA) --calibration $(CALIB) --result $(OUT) --port $(PORT)
@@ -68,24 +83,29 @@ review: ## Open viewer at http://127.0.0.1:$(PORT)/
 debug: ## Run full pipeline on sample (1 image/class) → debug_result/
 	$(PY) pdiseg-debug $(DATA) debug_result/result --bundle-root debug_result/bundles --per-class 1
 
-docker-build: ## Build pdiseg:latest image
-	$(COMPOSE) build pipeline
+docker-build: ## Build selected Docker image (CPU or GPU override)
+	$(COMPOSE_RUN) build pipeline
 
 docker-up: docker-build ## Run pipeline in Docker
 	DATA="$(abspath $(DATA))" OUT="$(abspath $(OUT))" MAX_IMAGES="$(MAX_IMAGES)" OFFSET="$(OFFSET)" \
-		PROGRESS_EVERY="$(PROGRESS_EVERY)" THREADS="$(THREADS)" DOCKER_NICE="$(DOCKER_NICE)" \
-		$(COMPOSE) up pipeline
+		PROGRESS_EVERY="$(PROGRESS_EVERY)" THREADS="$(THREADS)" WORKERS="$(WORKERS)" \
+		PDISEG_BACKEND="$(PDISEG_BACKEND)" PDISEG_BACKEND_LOG="$(PDISEG_BACKEND_LOG)" \
+		DOCKER_CPUS="$(DOCKER_CPUS)" DOCKER_MEMORY="$(DOCKER_MEMORY)" DOCKER_NICE="$(DOCKER_NICE)" \
+		$(COMPOSE_RUN) up pipeline
 
 docker-calibrate: docker-build ## Calibrate in Docker
 	DATA="$(abspath $(DATA))" CALIB="$(abspath $(CALIB))" LIMIT="$(LIMIT)" MAX_IMAGES="$(MAX_IMAGES)" OFFSET="$(OFFSET)" \
-		PROGRESS_EVERY="$(PROGRESS_EVERY)" THREADS="$(THREADS)" DOCKER_NICE="$(DOCKER_NICE)" \
-		$(COMPOSE) --profile tools run --rm calibrate
+		PROGRESS_EVERY="$(PROGRESS_EVERY)" THREADS="$(THREADS)" WORKERS="$(WORKERS)" \
+		PDISEG_BACKEND="$(PDISEG_BACKEND)" PDISEG_BACKEND_LOG="$(PDISEG_BACKEND_LOG)" \
+		DOCKER_CPUS="$(DOCKER_CPUS)" DOCKER_MEMORY="$(DOCKER_MEMORY)" DOCKER_NICE="$(DOCKER_NICE)" \
+		$(COMPOSE_RUN) --profile tools run --rm calibrate
 
 docker-review: docker-build ## Review viewer in Docker (port $(PORT))
 	DATA="$(abspath $(DATA))" OUT="$(abspath $(OUT))" CALIB="$(abspath $(CALIB))" PORT=$(PORT) \
-		THREADS="$(THREADS)" DOCKER_NICE="$(DOCKER_NICE)" \
+		THREADS="$(THREADS)" WORKERS="$(WORKERS)" PDISEG_BACKEND="$(PDISEG_BACKEND)" PDISEG_BACKEND_LOG="$(PDISEG_BACKEND_LOG)" \
+		DOCKER_CPUS="$(DOCKER_CPUS)" DOCKER_MEMORY="$(DOCKER_MEMORY)" DOCKER_NICE="$(DOCKER_NICE)" \
 		DOCKER_UID=$$(id -u) DOCKER_GID=$$(id -g) \
-		$(COMPOSE) --profile tools up review
+		$(COMPOSE_RUN) --profile tools up review
 
 docker-export: ## Copy named volumes to ./result on host
 	bash scripts/docker-export-artifacts.sh

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Callable
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -44,6 +45,12 @@ class DatasetReport:
         return self.total_crops / self.total_frames
 
 
+@dataclass(frozen=True)
+class _ProcessedSource:
+    class_name: str
+    crops: int
+
+
 def output_path(
     output_root: str | Path, class_name: str, source_path: str | Path, index: int
 ) -> Path:
@@ -78,24 +85,29 @@ def process_dataset(
     limit: int | None = None,
     offset: int = 0,
     progress_every: int = 0,
+    workers: int = 1,
 ) -> DatasetReport:
     per_class: dict[str, ClassReport] = {}
     sources = find_source_images(input_root)[max(0, offset) :]
     if limit is not None:
         sources = sources[: max(0, limit)]
     total = len(sources)
-    for index, source in enumerate(sources, start=1):
+
+    def process_source(source: Path) -> _ProcessedSource:
         class_name = source.parent.name
         image = load_image(source)
         boxes = detector(image)
-        crop_and_save(image, boxes, output_root, class_name, source)
+        written = crop_and_save(image, boxes, output_root, class_name, source)
+        return _ProcessedSource(class_name=class_name, crops=written)
+
+    def record(index: int, result: _ProcessedSource) -> None:
         row = per_class.setdefault(
-            class_name,
-            ClassReport(class_name=class_name, frames=0, crops=0, empty_frames=0),
+            result.class_name,
+            ClassReport(class_name=result.class_name, frames=0, crops=0, empty_frames=0),
         )
         row.frames += 1
-        row.crops += len(boxes)
-        if not boxes:
+        row.crops += result.crops
+        if result.crops == 0:
             row.empty_frames += 1
         if progress_every > 0 and (index % progress_every == 0 or index == total):
             print(
@@ -103,6 +115,21 @@ def process_dataset(
                 file=sys.stderr,
                 flush=True,
             )
+
+    worker_count = _effective_workers(workers, total)
+    if worker_count == 1:
+        for index, source in enumerate(sources, start=1):
+            record(index, process_source(source))
+    else:
+        completed = 0
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            futures: list[Future[_ProcessedSource]] = [
+                executor.submit(process_source, source) for source in sources
+            ]
+            for future in as_completed(futures):
+                completed += 1
+                record(completed, future.result())
+
     classes = [per_class[name] for name in sorted(per_class)]
     return DatasetReport(
         classes=classes,
@@ -110,6 +137,12 @@ def process_dataset(
         total_crops=sum(row.crops for row in classes),
         empty_frames=sum(row.empty_frames for row in classes),
     )
+
+
+def _effective_workers(workers: int, total: int) -> int:
+    if total <= 1:
+        return 1
+    return max(1, min(int(workers), total))
 
 
 def run(
@@ -120,6 +153,7 @@ def run(
     limit: int | None = None,
     offset: int = 0,
     progress_every: int = 0,
+    workers: int = 1,
 ) -> RunSummary:
     """Segment every image under ``input_root`` and write crops to ``output_root``."""
     report = process_dataset(
@@ -129,6 +163,7 @@ def run(
         limit=limit,
         offset=offset,
         progress_every=progress_every,
+        workers=workers,
     )
     return RunSummary(images_processed=report.total_frames, crops_written=report.total_crops)
 

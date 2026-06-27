@@ -44,6 +44,9 @@ dev = [
     "pytest-cov>=7.0.0",
     "ruff>=0.14.10",
 ]
+gpu = [
+    "cupy-cuda12x>=13.5,<14",
+]
 
 [project.scripts]
 pdiseg = "pdiseg.cli.segment:main"

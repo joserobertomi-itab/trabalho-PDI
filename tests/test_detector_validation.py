@@ -77,6 +77,7 @@ def test_process_dataset_respects_image_limit(tmp_path):
         detector=lambda image: [(0, 0, 10, 10)],
         limit=2,
         offset=1,
+        workers=2,
     )
 
     assert report.total_frames == 2

@@ -110,7 +110,7 @@ def test_calibrate_respects_image_limit(tmp_path):
         _write_frame_with_block(dataset / "ClassA" / f"f{i}.png", with_block=True)
 
     out = tmp_path / "calibration"
-    stats = pdiseg.calibrate(dataset, out, limit=2, offset=1)
+    stats = pdiseg.calibrate(dataset, out, limit=2, offset=1, workers=2)
 
     assert stats[0].frames == 2
     import json

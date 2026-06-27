@@ -5,10 +5,21 @@ x-pdiseg-env: &pdiseg-env
   OPENBLAS_NUM_THREADS: "${THREADS:-1}"
   MKL_NUM_THREADS: "${THREADS:-1}"
   NUMEXPR_NUM_THREADS: "${THREADS:-1}"
+  VECLIB_MAXIMUM_THREADS: "${THREADS:-1}"
+  BLIS_NUM_THREADS: "${THREADS:-1}"
+  OPENCV_FOR_THREADS_NUM: "${THREADS:-1}"
+  PDISEG_BACKEND: "${PDISEG_BACKEND:-auto}"
+  PDISEG_BACKEND_LOG: "${PDISEG_BACKEND_LOG:-1}"
+  PDISEG_WORKERS: "${WORKERS:-1}"
   MAX_IMAGES: "${MAX_IMAGES:-}"
   OFFSET: "${OFFSET:-0}"
-  PROGRESS_EVERY: "${PROGRESS_EVERY:-10}"
-  PDISEG_NICE: "${DOCKER_NICE:-5}"
+  PROGRESS_EVERY: "${PROGRESS_EVERY:-25}"
+  PDISEG_NICE: "${DOCKER_NICE:-10}"
+
+x-pdiseg-limits: &pdiseg-limits
+  cpus: "${DOCKER_CPUS:-2.0}"
+  mem_limit: "${DOCKER_MEMORY:-4g}"
+  pids_limit: 128
 
 volumes:
   pdiseg-result:
@@ -16,6 +27,7 @@ volumes:
 
 services:
   pipeline:
+    <<: *pdiseg-limits
     build:
       context: .
       dockerfile: Dockerfile
@@ -28,7 +40,7 @@ services:
         if [ -n "$${MAX_IMAGES:-}" ]; then
           set -- "$$@" --limit "$${MAX_IMAGES}"
         fi
-        exec nice -n "$${PDISEG_NICE:-5}" "$$@" --offset "$${OFFSET:-0}" --progress-every "$${PROGRESS_EVERY:-10}"
+        exec nice -n "$${PDISEG_NICE:-10}" "$$@" --offset "$${OFFSET:-0}" --progress-every "$${PROGRESS_EVERY:-25}" --workers "$${PDISEG_WORKERS:-1}"
     volumes:
       - ${DATA:-./data/Train_and_Validation}:/data/input:ro
       - ${OUT:-./result}:/data/output
@@ -42,6 +54,7 @@ services:
       - /tmp:size=64M,mode=1777
 
   calibrate:
+    <<: *pdiseg-limits
     profiles: ["tools"]
     image: pdiseg:latest
     build:
@@ -51,11 +64,11 @@ services:
       - sh
       - -c
       - |
-        set -- pdiseg-calibrate /data/input /data/calibration --per-class-limit "$${LIMIT:-3}"
+        set -- pdiseg-calibrate /data/input /data/calibration --per-class-limit "$${LIMIT:-9999}"
         if [ -n "$${MAX_IMAGES:-}" ]; then
           set -- "$$@" --limit "$${MAX_IMAGES}"
         fi
-        exec nice -n "$${PDISEG_NICE:-5}" "$$@" --offset "$${OFFSET:-0}" --progress-every "$${PROGRESS_EVERY:-10}"
+        exec nice -n "$${PDISEG_NICE:-10}" "$$@" --offset "$${OFFSET:-0}" --progress-every "$${PROGRESS_EVERY:-25}" --workers "$${PDISEG_WORKERS:-1}"
     volumes:
       - ${DATA:-./data/Train_and_Validation}:/data/input:ro
       - ${CALIB:-./calibration}:/data/calibration
@@ -70,6 +83,7 @@ services:
       - /tmp:size=64M,mode=1777
 
   review:
+    <<: *pdiseg-limits
     profiles: ["tools"]
     image: pdiseg:latest
     build:

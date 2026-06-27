@@ -57,3 +57,12 @@ Root `CONTEXT.md` + `docs/adr/` — see `docs/agents/domain.md`.
 ```sh
 make agent-check
 ```
+
+
+<claude-mem-context>
+# Memory Context
+
+# [trabalho-PDI] recent context, 2026-06-27 10:15am GMT-3
+
+No previous sessions found.
+</claude-mem-context>

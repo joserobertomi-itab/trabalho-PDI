@@ -6,6 +6,8 @@ import argparse
 from typing import Literal
 
 from pdiseg.calibration.service import calibrate
+from pdiseg.core.acceleration import log_acceleration_once
+from pdiseg.runtime.env import env_int
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -50,7 +52,14 @@ def main(argv: list[str] | None = None) -> None:
         default=25,
         help="Print progress every N images to stderr; use 0 to disable.",
     )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=env_int("PDISEG_WORKERS", 1),
+        help="Number of images to process concurrently (default: PDISEG_WORKERS or 1).",
+    )
     args = parser.parse_args(argv)
+    log_acceleration_once()
 
     stats = calibrate(
         args.input_root,
@@ -59,6 +68,7 @@ def main(argv: list[str] | None = None) -> None:
         limit=args.limit,
         offset=args.offset,
         progress_every=args.progress_every,
+        workers=args.workers,
     )
 
     print(f"{'class_name':52} {'frames':>6} {'cand':>6} {'kept':>6} {'labels':>6}")

@@ -12,14 +12,19 @@ make docker-calibrate
 The Make targets pass conservative runtime defaults to Docker:
 
 - `THREADS=1` limits NumPy/SciPy/OpenBLAS worker threads.
-- `DOCKER_NICE=5` lowers container process priority enough to keep a notebook usable.
-- `PROGRESS_EVERY=10` or `25` prints progress so long runs do not look frozen.
+- `WORKERS=6` processes images concurrently.
+- `DOCKER_CPUS=6.0` applies a hard Docker CPU cap; on a 12-logical-CPU notebook this is 50%.
+- `DOCKER_MEMORY=4g` caps container memory.
+- `DOCKER_GPU=auto` makes `make docker-up` and `make docker-calibrate` use `docker-compose.gpu.yml` when NVIDIA Docker is available.
+- `PDISEG_BACKEND=auto` uses the CuPy/CUDA mask backend when the GPU image can access a CUDA device, otherwise CPU.
+- `DOCKER_NICE=10` lowers container process priority.
+- `PROGRESS_EVERY=25` prints progress so long runs do not look frozen.
 
 Run the full dataset:
 
 ```sh
-make docker-up PROGRESS_EVERY=10
-make docker-calibrate PROGRESS_EVERY=10
+make docker-up
+make docker-calibrate
 ```
 
 Run in chunks:
@@ -33,8 +38,15 @@ make docker-up MAX_IMAGES=100 OFFSET=200
 If the machine is still busy:
 
 ```sh
-make docker-up DOCKER_NICE=10
-make docker-calibrate DOCKER_NICE=10
+make docker-up DOCKER_CPUS=4.0 WORKERS=4
+make docker-calibrate DOCKER_CPUS=4.0 WORKERS=4
+```
+
+Force CPU fallback:
+
+```sh
+make docker-up DOCKER_GPU=off PDISEG_BACKEND=cpu
+make docker-calibrate DOCKER_GPU=off PDISEG_BACKEND=cpu
 ```
 
 ### Named volumes (pipeline + review)
@@ -47,10 +59,17 @@ CALIB=pdiseg-calibration
 ```
 
 ```sh
-THREADS=1 DOCKER_NICE=5 PROGRESS_EVERY=10 docker compose up --build pipeline
-THREADS=1 DOCKER_NICE=5 PROGRESS_EVERY=10 docker compose --profile tools run --rm calibrate
+THREADS=1 WORKERS=6 PDISEG_BACKEND=auto DOCKER_CPUS=6.0 DOCKER_MEMORY=4g DOCKER_NICE=10 PROGRESS_EVERY=25 docker compose up --build pipeline
+THREADS=1 WORKERS=6 PDISEG_BACKEND=auto DOCKER_CPUS=6.0 DOCKER_MEMORY=4g DOCKER_NICE=10 PROGRESS_EVERY=25 docker compose --profile tools run --rm calibrate
 docker compose --profile tools up review
 make docker-export
+```
+
+Direct GPU override:
+
+```sh
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build pipeline
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile tools run --rm calibrate
 ```
 
 | `OUT` | Use |
@@ -76,7 +95,7 @@ make docker-export
 make docker-smoke
 ```
 
-Variables: `DATA`, `OUT`, `CALIB`, `LIMIT`, `MAX_IMAGES`, `OFFSET`, `PROGRESS_EVERY`, `THREADS`, `DOCKER_NICE`, `PORT` — see README.
+Variables: `DATA`, `OUT`, `CALIB`, `LIMIT`, `MAX_IMAGES`, `OFFSET`, `PROGRESS_EVERY`, `THREADS`, `WORKERS`, `PDISEG_BACKEND`, `DOCKER_GPU`, `DOCKER_CPUS`, `DOCKER_MEMORY`, `DOCKER_NICE`, `PORT` — see README.
 
 ### New dataset (complementary evaluation)
 

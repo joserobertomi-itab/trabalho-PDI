@@ -97,7 +97,9 @@ cp .env.example .env
 make docker-up
 ```
 
-This runs all images with conservative CPU settings (`THREADS=1`, `DOCKER_NICE=5`) and progress logs.
+This runs all images with Docker settings from `.env`: 6 workers, a 6-CPU cap
+(50% of a 12-logical-CPU notebook), and automatic GPU selection when NVIDIA Docker is
+available.
 
 Run calibration in Docker:
 
@@ -108,17 +110,24 @@ make docker-calibrate
 Recommended full Docker flow:
 
 ```sh
-make docker-up PROGRESS_EVERY=10
-make docker-calibrate PROGRESS_EVERY=10
+make docker-up
+make docker-calibrate
 ```
 
 Do not run `docker-up` and `docker-calibrate` at the same time on a notebook.
 
-If the notebook is still too busy, increase the niceness:
+If the notebook is still too busy, lower the CPU cap:
 
 ```sh
-make docker-up DOCKER_NICE=10 PROGRESS_EVERY=10
-make docker-calibrate DOCKER_NICE=10 PROGRESS_EVERY=10
+make docker-up DOCKER_CPUS=4.0 WORKERS=4
+make docker-calibrate DOCKER_CPUS=4.0 WORKERS=4
+```
+
+Force CPU even on a machine with NVIDIA:
+
+```sh
+make docker-up DOCKER_GPU=off PDISEG_BACKEND=cpu
+make docker-calibrate DOCKER_GPU=off PDISEG_BACKEND=cpu
 ```
 
 If you want to run in chunks:
@@ -138,11 +147,18 @@ make docker-up DATA=dataset OUT=result
 Direct Compose equivalent:
 
 ```sh
-DATA=./data/Train_and_Validation OUT=./result THREADS=1 DOCKER_NICE=5 PROGRESS_EVERY=10 \
+DATA=./data/Train_and_Validation OUT=./result THREADS=1 WORKERS=6 PDISEG_BACKEND=auto DOCKER_CPUS=6.0 DOCKER_MEMORY=4g DOCKER_NICE=10 PROGRESS_EVERY=25 \
   docker compose up --build pipeline
 
-DATA=./data/Train_and_Validation CALIB=./calibration LIMIT=3 THREADS=1 DOCKER_NICE=5 PROGRESS_EVERY=10 \
+DATA=./data/Train_and_Validation CALIB=./calibration LIMIT=9999 THREADS=1 WORKERS=6 PDISEG_BACKEND=auto DOCKER_CPUS=6.0 DOCKER_MEMORY=4g DOCKER_NICE=10 PROGRESS_EVERY=25 \
   docker compose --profile tools run --rm calibrate
+```
+
+Direct Compose with GPU override:
+
+```sh
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build pipeline
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile tools run --rm calibrate
 ```
 
 Details: [docs/docker-compose.md](./docs/docker-compose.md).
@@ -169,12 +185,17 @@ Run `make` or `make help` to list targets.
 | `DATA` | `data/Train_and_Validation` | Input folder |
 | `OUT` | `result` | Segmentation output |
 | `CALIB` | `calibration` | Calibration output |
-| `LIMIT` | `3` | Overlays per class in calibrate |
+| `LIMIT` | `9999` | Per-class calibration cap; high value means all images |
 | `MAX_IMAGES` | empty | Optional max images per run |
 | `OFFSET` | `0` | Skip N sorted images before running |
 | `PROGRESS_EVERY` | `25` | Print progress every N images |
 | `THREADS` | `1` | Numeric library threads in Docker |
-| `DOCKER_NICE` | `5` | Lower Docker process priority (`10` is gentler) |
+| `WORKERS` | `6` | Images processed concurrently |
+| `PDISEG_BACKEND` | `auto` | Use GPU when CuPy/CUDA is available, otherwise CPU |
+| `DOCKER_GPU` | `auto` | Makefile selects the GPU Compose override when NVIDIA Docker is available |
+| `DOCKER_CPUS` | `6.0` | Hard Docker CPU cap; on this 12-logical-CPU notebook this is 50% |
+| `DOCKER_MEMORY` | `4g` | Docker memory cap |
+| `DOCKER_NICE` | `10` | Lower Docker process priority |
 | `PORT` | `8765` | Review server port |
 
 ### Commands

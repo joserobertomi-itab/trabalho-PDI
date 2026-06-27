@@ -1,0 +1,26 @@
+services:
+  pipeline:
+    image: pdiseg:gpu
+    build:
+      args:
+        PDISEG_EXTRAS: gpu
+    gpus: all
+    environment:
+      NVIDIA_VISIBLE_DEVICES: "${NVIDIA_VISIBLE_DEVICES:-all}"
+      NVIDIA_DRIVER_CAPABILITIES: "${NVIDIA_DRIVER_CAPABILITIES:-compute,utility}"
+
+  calibrate:
+    image: pdiseg:gpu
+    build:
+      args:
+        PDISEG_EXTRAS: gpu
+    gpus: all
+    environment:
+      NVIDIA_VISIBLE_DEVICES: "${NVIDIA_VISIBLE_DEVICES:-all}"
+      NVIDIA_DRIVER_CAPABILITIES: "${NVIDIA_DRIVER_CAPABILITIES:-compute,utility}"
+
+  review:
+    image: pdiseg:gpu
+    build:
+      args:
+        PDISEG_EXTRAS: gpu
