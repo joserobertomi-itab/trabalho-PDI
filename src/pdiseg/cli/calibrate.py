@@ -32,9 +32,34 @@ def main(argv: list[str] | None = None) -> None:
         default=3,
         help="How many sample overlays to write per class (default: 3).",
     )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Process at most N images, useful for safe batch runs.",
+    )
+    parser.add_argument(
+        "--offset",
+        type=int,
+        default=0,
+        help="Skip the first N sorted images before applying --limit.",
+    )
+    parser.add_argument(
+        "--progress-every",
+        type=int,
+        default=25,
+        help="Print progress every N images to stderr; use 0 to disable.",
+    )
     args = parser.parse_args(argv)
 
-    stats = calibrate(args.input_root, args.output_dir, per_class_limit=args.per_class_limit)
+    stats = calibrate(
+        args.input_root,
+        args.output_dir,
+        per_class_limit=args.per_class_limit,
+        limit=args.limit,
+        offset=args.offset,
+        progress_every=args.progress_every,
+    )
 
     print(f"{'class_name':52} {'frames':>6} {'cand':>6} {'kept':>6} {'labels':>6}")
     for s in stats:

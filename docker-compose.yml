@@ -1,5 +1,15 @@
 name: pdiseg
 
+x-pdiseg-env: &pdiseg-env
+  OMP_NUM_THREADS: "${THREADS:-1}"
+  OPENBLAS_NUM_THREADS: "${THREADS:-1}"
+  MKL_NUM_THREADS: "${THREADS:-1}"
+  NUMEXPR_NUM_THREADS: "${THREADS:-1}"
+  MAX_IMAGES: "${MAX_IMAGES:-}"
+  OFFSET: "${OFFSET:-0}"
+  PROGRESS_EVERY: "${PROGRESS_EVERY:-10}"
+  PDISEG_NICE: "${DOCKER_NICE:-5}"
+
 volumes:
   pdiseg-result:
   pdiseg-calibration:
@@ -10,11 +20,20 @@ services:
       context: .
       dockerfile: Dockerfile
     image: pdiseg:latest
-    command: ["pdiseg", "/data/input", "/data/output"]
+    command:
+      - sh
+      - -c
+      - |
+        set -- pdiseg /data/input /data/output
+        if [ -n "$${MAX_IMAGES:-}" ]; then
+          set -- "$$@" --limit "$${MAX_IMAGES}"
+        fi
+        exec nice -n "$${PDISEG_NICE:-5}" "$$@" --offset "$${OFFSET:-0}" --progress-every "$${PROGRESS_EVERY:-10}"
     volumes:
       - ${DATA:-./data/Train_and_Validation}:/data/input:ro
       - ${OUT:-./result}:/data/output
     environment:
+      <<: *pdiseg-env
       PDISEG_PREPARE_MOUNTS: "1"
     security_opt:
       - no-new-privileges:true
@@ -29,15 +48,20 @@ services:
       context: .
       dockerfile: Dockerfile
     command:
-      - pdiseg-calibrate
-      - /data/input
-      - /data/calibration
-      - --per-class-limit
-      - "${LIMIT:-3}"
+      - sh
+      - -c
+      - |
+        set -- pdiseg-calibrate /data/input /data/calibration --per-class-limit "$${LIMIT:-3}"
+        if [ -n "$${MAX_IMAGES:-}" ]; then
+          set -- "$$@" --limit "$${MAX_IMAGES}"
+        fi
+        exec nice -n "$${PDISEG_NICE:-5}" "$$@" --offset "$${OFFSET:-0}" --progress-every "$${PROGRESS_EVERY:-10}"
     volumes:
       - ${DATA:-./data/Train_and_Validation}:/data/input:ro
       - ${CALIB:-./calibration}:/data/calibration
     environment:
+      <<: *pdiseg-env
+      LIMIT: "${LIMIT:-3}"
       PDISEG_PREPARE_MOUNTS: "1"
     security_opt:
       - no-new-privileges:true
@@ -70,6 +94,8 @@ services:
       - ${DATA:-./data/Train_and_Validation}:/data/input:ro
       - ${CALIB:-./calibration}:/data/calibration:ro
       - ${OUT:-./result}:/data/output:ro
+    environment:
+      <<: *pdiseg-env
     security_opt:
       - no-new-privileges:true
     read_only: true

@@ -114,7 +114,9 @@ def score_candidate(
         else opened_background(image, config)[y : y + h, x : x + w]
     )
     background_level = float(opened_patch.mean())
-    background_score = max(0.0, (config.background_level_max - background_level) / config.background_level_max)
+    background_score = max(
+        0.0, (config.background_level_max - background_level) / config.background_level_max
+    )
     bright_on_dark = float((region_orig > opened_patch + config.bright_on_dark_offset).mean())
 
     try:
@@ -122,14 +124,12 @@ def score_candidate(
     except ValueError:
         fg_thresh = float(region_orig.mean())
     extent = float((region_orig <= fg_thresh).mean()) if region_orig.size else 0.0
-    extent_score = math.exp(-((extent - config.extent_target) / 0.15) ** 2)
+    extent_score = math.exp(-(((extent - config.extent_target) / 0.15) ** 2))
 
     bimodal_raw, bimodal_dark_frac, bimodal_contrast = analyze_bimodality(region_orig, config)
     bimodal_score = min(1.0, bimodal_raw / 80.0)
 
-    body_overlap = (
-        float(body[y : y + h, x : x + w].mean()) if body is not None else dark_density
-    )
+    body_overlap = float(body[y : y + h, x : x + w].mean()) if body is not None else dark_density
 
     cx = (x + w / 2) / width
     cy = (y + h / 2) / height
@@ -235,6 +235,4 @@ def score_candidates(
         opened = opened_background(image, config)
     if body is None and config.min_body_overlap > 0:
         body = dark_body_mask(image, config)
-    return [
-        score_candidate(image, work, box, config, opened=opened, body=body) for box in boxes
-    ]
+    return [score_candidate(image, work, box, config, opened=opened, body=body) for box in boxes]

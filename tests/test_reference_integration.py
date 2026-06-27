@@ -61,9 +61,7 @@ def test_edge_density_mask_is_quiet_on_uniform_field() -> None:
 
 
 def test_analyze_bimodality_detects_dark_and_light_regions() -> None:
-    roi = np.concatenate(
-        [np.full(1200, 40, dtype=np.uint8), np.full(800, 210, dtype=np.uint8)]
-    )
+    roi = np.concatenate([np.full(1200, 40, dtype=np.uint8), np.full(800, 210, dtype=np.uint8)])
     score, dark_frac, contrast = analyze_bimodality(roi, DetectionConfig())
     assert score > 0
     assert 0.4 < dark_frac < 0.7

@@ -94,26 +94,55 @@ make review PORT=9000
 ```sh
 mkdir -p result calibration
 cp .env.example .env
-docker compose up --build
+make docker-up
 ```
 
-Or via Make:
+This runs all images with conservative CPU settings (`THREADS=1`, `DOCKER_NICE=5`) and progress logs.
+
+Run calibration in Docker:
 
 ```sh
-make docker-up
+make docker-calibrate
+```
+
+Recommended full Docker flow:
+
+```sh
+make docker-up PROGRESS_EVERY=10
+make docker-calibrate PROGRESS_EVERY=10
+```
+
+Do not run `docker-up` and `docker-calibrate` at the same time on a notebook.
+
+If the notebook is still too busy, increase the niceness:
+
+```sh
+make docker-up DOCKER_NICE=10 PROGRESS_EVERY=10
+make docker-calibrate DOCKER_NICE=10 PROGRESS_EVERY=10
+```
+
+If you want to run in chunks:
+
+```sh
+make docker-up MAX_IMAGES=100 OFFSET=0
+make docker-up MAX_IMAGES=100 OFFSET=100
+make docker-up MAX_IMAGES=100 OFFSET=200
 ```
 
 Assignment-style dataset folder name:
 
 ```sh
-DATA=./dataset docker compose up --build
+make docker-up DATA=dataset OUT=result
 ```
 
-Extra tools (`tools` profile):
+Direct Compose equivalent:
 
 ```sh
-make docker-calibrate
-make docker-review
+DATA=./data/Train_and_Validation OUT=./result THREADS=1 DOCKER_NICE=5 PROGRESS_EVERY=10 \
+  docker compose up --build pipeline
+
+DATA=./data/Train_and_Validation CALIB=./calibration LIMIT=3 THREADS=1 DOCKER_NICE=5 PROGRESS_EVERY=10 \
+  docker compose --profile tools run --rm calibrate
 ```
 
 Details: [docs/docker-compose.md](./docs/docker-compose.md).
@@ -141,6 +170,11 @@ Run `make` or `make help` to list targets.
 | `OUT` | `result` | Segmentation output |
 | `CALIB` | `calibration` | Calibration output |
 | `LIMIT` | `3` | Overlays per class in calibrate |
+| `MAX_IMAGES` | empty | Optional max images per run |
+| `OFFSET` | `0` | Skip N sorted images before running |
+| `PROGRESS_EVERY` | `25` | Print progress every N images |
+| `THREADS` | `1` | Numeric library threads in Docker |
+| `DOCKER_NICE` | `5` | Lower Docker process priority (`10` is gentler) |
 | `PORT` | `8765` | Review server port |
 
 ### Commands

@@ -24,9 +24,33 @@ def main(argv: list[str] | None = None) -> None:
         default="result",
         help="Where to write <Class>/<source>_segmented_<N>.png crops.",
     )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Process at most N images, useful for safe batch runs.",
+    )
+    parser.add_argument(
+        "--offset",
+        type=int,
+        default=0,
+        help="Skip the first N sorted images before applying --limit.",
+    )
+    parser.add_argument(
+        "--progress-every",
+        type=int,
+        default=25,
+        help="Print progress every N images to stderr; use 0 to disable.",
+    )
     args = parser.parse_args(argv)
 
-    summary = run(args.input_root, args.output_root)
+    summary = run(
+        args.input_root,
+        args.output_root,
+        limit=args.limit,
+        offset=args.offset,
+        progress_every=args.progress_every,
+    )
     print(
         f"Processed {summary.images_processed} images, "
         f"wrote {summary.crops_written} crops to {args.output_root}"

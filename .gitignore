@@ -3,7 +3,7 @@ data/
 .venv/
 .uv/
 result/
-calibration/
+/calibration/
 .docker-smoke/
 __pycache__/
 .pytest_cache/

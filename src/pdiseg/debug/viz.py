@@ -390,7 +390,10 @@ def plot_frame_full_debug(
         ax.axis("off")
 
     stages: list[tuple[str, NDArray[np.uint8]]] = [
-        (f"candidates ({len(detection.candidates)})", draw_boxes(image, detection.candidates, (220, 50, 50))),
+        (
+            f"candidates ({len(detection.candidates)})",
+            draw_boxes(image, detection.candidates, (220, 50, 50)),
+        ),
         (f"kept ({len(detection.kept)})", draw_boxes(image, detection.kept, (240, 200, 40))),
         (f"labels ({len(detection.labels)})", draw_boxes(image, detection.labels, (40, 200, 80))),
         (
@@ -492,7 +495,9 @@ def plot_bundle_gallery(
         ax.axis("off")
     for ax in axes[len(paths) :]:
         ax.axis("off")
-    fig.set_size_inches(figsize_scale * ncols, figsize_scale * max(1, math.ceil(len(paths) / ncols)))
+    fig.set_size_inches(
+        figsize_scale * ncols, figsize_scale * max(1, math.ceil(len(paths) / ncols))
+    )
     fig.suptitle(f"On-disk bundle: {stem}", fontsize=12)
     plt.tight_layout()
     return fig
@@ -540,7 +545,9 @@ def save_debug_bundle(
     iio.imwrite(output_dir / f"{stem}_source.png", image)
     iio.imwrite(output_dir / f"{stem}_gray.png", prep.gray)
     iio.imwrite(output_dir / f"{stem}_preprocess.png", prep.work)
-    iio.imwrite(output_dir / f"{stem}_opened_background.png", visualize_opened_background(prep.gray))
+    iio.imwrite(
+        output_dir / f"{stem}_opened_background.png", visualize_opened_background(prep.gray)
+    )
     iio.imwrite(
         output_dir / f"{stem}_overlay.png",
         render_overlay(

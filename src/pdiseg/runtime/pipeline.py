@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -73,9 +74,17 @@ def process_dataset(
     input_root: str | Path,
     output_root: str | Path,
     detector: Callable[[NDArray[np.uint8]], list[BBox]] = detect_name_labels,
+    *,
+    limit: int | None = None,
+    offset: int = 0,
+    progress_every: int = 0,
 ) -> DatasetReport:
     per_class: dict[str, ClassReport] = {}
-    for source in find_source_images(input_root):
+    sources = find_source_images(input_root)[max(0, offset) :]
+    if limit is not None:
+        sources = sources[: max(0, limit)]
+    total = len(sources)
+    for index, source in enumerate(sources, start=1):
         class_name = source.parent.name
         image = load_image(source)
         boxes = detector(image)
@@ -88,6 +97,12 @@ def process_dataset(
         row.crops += len(boxes)
         if not boxes:
             row.empty_frames += 1
+        if progress_every > 0 and (index % progress_every == 0 or index == total):
+            print(
+                f"pdiseg: processed {index}/{total} images, crops={sum(r.crops for r in per_class.values())}",
+                file=sys.stderr,
+                flush=True,
+            )
     classes = [per_class[name] for name in sorted(per_class)]
     return DatasetReport(
         classes=classes,
@@ -101,9 +116,20 @@ def run(
     input_root: str | Path,
     output_root: str | Path,
     detector: Callable[[NDArray[np.uint8]], list[BBox]] = detect_name_labels,
+    *,
+    limit: int | None = None,
+    offset: int = 0,
+    progress_every: int = 0,
 ) -> RunSummary:
     """Segment every image under ``input_root`` and write crops to ``output_root``."""
-    report = process_dataset(input_root, output_root, detector=detector)
+    report = process_dataset(
+        input_root,
+        output_root,
+        detector=detector,
+        limit=limit,
+        offset=offset,
+        progress_every=progress_every,
+    )
     return RunSummary(images_processed=report.total_frames, crops_written=report.total_crops)
 
 

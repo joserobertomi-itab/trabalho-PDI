@@ -104,6 +104,23 @@ def test_calibrate_respects_per_class_overlay_limit(tmp_path):
     assert len(overlays) == 2
 
 
+def test_calibrate_respects_image_limit(tmp_path):
+    dataset = tmp_path / "dataset"
+    for i in range(3):
+        _write_frame_with_block(dataset / "ClassA" / f"f{i}.png", with_block=True)
+
+    out = tmp_path / "calibration"
+    stats = pdiseg.calibrate(dataset, out, limit=2, offset=1)
+
+    assert stats[0].frames == 2
+    import json
+
+    payload = json.loads((out / "boxes.json").read_text(encoding="utf-8"))
+    assert "ClassA/f0.png" not in payload
+    assert "ClassA/f1.png" in payload
+    assert "ClassA/f2.png" in payload
+
+
 def test_calibrate_writes_boxes_json_with_per_stage_boxes(tmp_path):
     dataset = tmp_path / "dataset"
     _write_frame_with_block(dataset / "ClassA" / "f1.png", with_block=True)

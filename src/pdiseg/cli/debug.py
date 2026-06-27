@@ -48,8 +48,7 @@ def main(argv: list[str] | None = None) -> None:
     )
     ds = report.dataset_report
     print(
-        f"Debug sample: {ds.total_frames} frames, {ds.total_crops} crops, "
-        f"{ds.empty_frames} empty"
+        f"Debug sample: {ds.total_frames} frames, {ds.total_crops} crops, {ds.empty_frames} empty"
     )
     print(f"Crops written to {report.result_root}/")
     print(f"Bundles written to {report.bundle_root}/")

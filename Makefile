@@ -4,6 +4,11 @@ DATA    ?= data/Train_and_Validation
 OUT     ?= result
 CALIB   ?= calibration
 LIMIT   ?= 3
+MAX_IMAGES ?=
+OFFSET ?= 0
+PROGRESS_EVERY ?= 25
+THREADS ?= 1
+DOCKER_NICE ?= 5
 PORT    ?= 8765
 COMPOSE ?= docker compose
 
@@ -18,8 +23,10 @@ help: ## List all targets (run with no arguments)
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-22s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "Variables (override on the command line):"
-	@echo "  DATA=$(DATA)   OUT=$(OUT)   CALIB=$(CALIB)   LIMIT=$(LIMIT)   PORT=$(PORT)"
-	@echo "  Example: make run DATA=dataset OUT=result"
+	@echo "  DATA=$(DATA)   OUT=$(OUT)   CALIB=$(CALIB)   LIMIT=$(LIMIT)   MAX_IMAGES=$(MAX_IMAGES)   OFFSET=$(OFFSET)   PROGRESS_EVERY=$(PROGRESS_EVERY)"
+	@echo "  THREADS=$(THREADS)   DOCKER_NICE=$(DOCKER_NICE)   PORT=$(PORT)"
+	@echo "  Example: make run DATA=dataset OUT=result MAX_IMAGES=50 OFFSET=0"
+	@echo "  Docker all images: make docker-up THREADS=1 DOCKER_NICE=5 PROGRESS_EVERY=10"
 
 setup: sync kernel ## Install dependencies (uv sync --extra dev)
 
@@ -50,10 +57,10 @@ check: lint typecheck test ## lint + mypy + tests
 ci: sync check ## Local CI parity
 
 run: ## Segment DATA → OUT
-	$(PY) pdiseg $(DATA) $(OUT)
+	$(PY) pdiseg $(DATA) $(OUT) $(if $(MAX_IMAGES),--limit $(MAX_IMAGES),) --offset $(OFFSET) --progress-every $(PROGRESS_EVERY)
 
 calibrate: ## Write calibration/ (overlays, boxes.json, stats.csv)
-	$(PY) pdiseg-calibrate $(DATA) $(CALIB) --per-class-limit $(LIMIT)
+	$(PY) pdiseg-calibrate $(DATA) $(CALIB) --per-class-limit $(LIMIT) $(if $(MAX_IMAGES),--limit $(MAX_IMAGES),) --offset $(OFFSET) --progress-every $(PROGRESS_EVERY)
 
 review: ## Open viewer at http://127.0.0.1:$(PORT)/
 	$(PY) pdiseg-review --dataset $(DATA) --calibration $(CALIB) --result $(OUT) --port $(PORT)
@@ -65,13 +72,18 @@ docker-build: ## Build pdiseg:latest image
 	$(COMPOSE) build pipeline
 
 docker-up: docker-build ## Run pipeline in Docker
-	DATA=./$(DATA) OUT=./$(OUT) $(COMPOSE) up --build pipeline
+	DATA="$(abspath $(DATA))" OUT="$(abspath $(OUT))" MAX_IMAGES="$(MAX_IMAGES)" OFFSET="$(OFFSET)" \
+		PROGRESS_EVERY="$(PROGRESS_EVERY)" THREADS="$(THREADS)" DOCKER_NICE="$(DOCKER_NICE)" \
+		$(COMPOSE) up pipeline
 
 docker-calibrate: docker-build ## Calibrate in Docker
-	DATA=./$(DATA) CALIB=./$(CALIB) LIMIT=$(LIMIT) $(COMPOSE) --profile tools run --rm calibrate
+	DATA="$(abspath $(DATA))" CALIB="$(abspath $(CALIB))" LIMIT="$(LIMIT)" MAX_IMAGES="$(MAX_IMAGES)" OFFSET="$(OFFSET)" \
+		PROGRESS_EVERY="$(PROGRESS_EVERY)" THREADS="$(THREADS)" DOCKER_NICE="$(DOCKER_NICE)" \
+		$(COMPOSE) --profile tools run --rm calibrate
 
 docker-review: docker-build ## Review viewer in Docker (port $(PORT))
-	DATA=./$(DATA) OUT=./$(OUT) CALIB=./$(CALIB) PORT=$(PORT) \
+	DATA="$(abspath $(DATA))" OUT="$(abspath $(OUT))" CALIB="$(abspath $(CALIB))" PORT=$(PORT) \
+		THREADS="$(THREADS)" DOCKER_NICE="$(DOCKER_NICE)" \
 		DOCKER_UID=$$(id -u) DOCKER_GID=$$(id -g) \
 		$(COMPOSE) --profile tools up review
 

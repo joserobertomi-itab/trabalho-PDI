@@ -239,9 +239,7 @@ def _final_area_bounds(config: DetectionConfig, frame_area: float) -> tuple[floa
     return min_area, max_area
 
 
-def _passes_final_product_badge_gate(
-    item: ScoredCandidate, config: DetectionConfig
-) -> bool:
+def _passes_final_product_badge_gate(item: ScoredCandidate, config: DetectionConfig) -> bool:
     if not config.use_final_product_badge_gate:
         return True
 
@@ -267,17 +265,12 @@ def _passes_final_product_badge_gate(
         return False
     if not (config.final_min_aspect <= aspect <= config.final_max_aspect):
         return False
-    if (
-        config.min_body_overlap > 0
-        and features.get("body_overlap", 0.0) < config.min_body_overlap
-    ):
+    if config.min_body_overlap > 0 and features.get("body_overlap", 0.0) < config.min_body_overlap:
         return False
     return _passes_notebook_gates(item, config)
 
 
-def _passes_relaxed_product_anchor_gate(
-    item: ScoredCandidate, config: DetectionConfig
-) -> bool:
+def _passes_relaxed_product_anchor_gate(item: ScoredCandidate, config: DetectionConfig) -> bool:
     features = item.features
     frame_area = features.get("frame_area", 0.0)
     area_frac = features.get("area_frac", box_area(item.box) / max(frame_area, 1.0))
@@ -308,8 +301,7 @@ def _passes_relaxed_product_anchor_gate(
     if not (0.30 <= extent <= 0.62):
         return False
     return not (
-        features.get("bimodal_score", 0.0) < 0.22
-        and features.get("bimodal_contrast", 0.0) < 24.0
+        features.get("bimodal_score", 0.0) < 0.22 and features.get("bimodal_contrast", 0.0) < 24.0
     )
 
 
@@ -447,19 +439,17 @@ def _is_adjacent_label_context(
     max_gap_y = max(8.0, ah * config.cluster_context_max_gap_frac)
 
     above_or_touching = by + bh <= ay + int(ah * 0.35)
-    upper_context = above_or_touching and gap_y <= max_gap_y and overlap_x >= (
-        config.cluster_context_min_axis_overlap * 0.65
+    upper_context = (
+        above_or_touching
+        and gap_y <= max_gap_y
+        and overlap_x >= (config.cluster_context_min_axis_overlap * 0.65)
     )
     side_context = (
         gap_x <= max_gap_x
         and overlap_y >= config.cluster_context_min_axis_overlap
         and by + bh / 2 <= ay + ah * 0.65
     )
-    upper_diagonal = (
-        above_or_touching
-        and gap_x <= max_gap_x
-        and gap_y <= max_gap_y
-    )
+    upper_diagonal = above_or_touching and gap_x <= max_gap_x and gap_y <= max_gap_y
     return upper_context or side_context or upper_diagonal
 
 
@@ -645,7 +635,9 @@ def _recall_candidate_boxes(
     boxes: list[BBox] = []
     for attempt in attempts:
         boxes.extend(find_candidate_boxes(work, attempt, text_source=image))
-    return dedupe_boxes(keep_label_clusters(boxes, config, frame_width=work.shape[1]) or boxes, 0.55)
+    return dedupe_boxes(
+        keep_label_clusters(boxes, config, frame_width=work.shape[1]) or boxes, 0.55
+    )
 
 
 def _build_cluster_detections(
@@ -712,11 +704,9 @@ def _build_cluster_detections(
             opened=opened,
             body=body,
         )
-        if (
-            box_area(cluster) <= 0
-            or box_area(cluster) / max(frame_area, 1)
-            > _cluster_max_area_frac(config, frame_area)
-        ):
+        if box_area(cluster) <= 0 or box_area(cluster) / max(
+            frame_area, 1
+        ) > _cluster_max_area_frac(config, frame_area):
             continue
         expansion_bonus = min(0.10, max(0, box_area(cluster) - box_area(anchor)) / frame_area * 4.0)
         score = min(1.0, anchor_score.score * 0.76 + item.score * 0.18 + expansion_bonus)
@@ -778,10 +768,6 @@ def postprocess_boxes(
         image, work, raw_boxes, scored, config, opened=opened, body=body
     )
     if not detections:
-        recall_boxes = _recall_candidate_boxes(image, work, config)
-        if recall_boxes:
-            raw_boxes = dedupe_boxes(raw_boxes + recall_boxes, iou_threshold=0.85)
-            scored = score_candidates(image, work, raw_boxes, config, opened=opened, body=body)
         detections = _build_cluster_detections(
             image,
             work,
@@ -792,6 +778,22 @@ def postprocess_boxes(
             opened=opened,
             body=body,
         )
+
+    if not detections:
+        recall_boxes = _recall_candidate_boxes(image, work, config)
+        if recall_boxes:
+            raw_boxes = dedupe_boxes(raw_boxes + recall_boxes, iou_threshold=0.85)
+            scored = score_candidates(image, work, raw_boxes, config, opened=opened, body=body)
+            detections = _build_cluster_detections(
+                image,
+                work,
+                raw_boxes,
+                scored,
+                config,
+                allow_relaxed_anchor=True,
+                opened=opened,
+                body=body,
+            )
 
     selected = _select_clusters(detections, config)
     return _selected_clusters(selected), scored, _selected_anchors(selected)

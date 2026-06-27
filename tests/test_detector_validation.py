@@ -1,4 +1,3 @@
-
 import imageio.v3 as iio
 import numpy as np
 
@@ -64,3 +63,24 @@ def test_dataset_report_counts_empty_frames(tmp_path):
     report = pdiseg.process_dataset(dataset.parent, tmp_path / "result")
     assert report.total_frames == 1
     assert report.empty_frames >= 0
+
+
+def test_process_dataset_respects_image_limit(tmp_path):
+    dataset = tmp_path / "dataset" / "ClassA"
+    dataset.mkdir(parents=True)
+    for index in range(3):
+        iio.imwrite(dataset / f"img{index}.png", np.full((40, 40), 128, dtype=np.uint8))
+
+    report = pdiseg.process_dataset(
+        dataset.parent,
+        tmp_path / "result",
+        detector=lambda image: [(0, 0, 10, 10)],
+        limit=2,
+        offset=1,
+    )
+
+    assert report.total_frames == 2
+    assert report.total_crops == 2
+    assert not (tmp_path / "result" / "ClassA" / "img0_segmented_1.png").exists()
+    assert (tmp_path / "result" / "ClassA" / "img1_segmented_1.png").exists()
+    assert (tmp_path / "result" / "ClassA" / "img2_segmented_1.png").exists()
