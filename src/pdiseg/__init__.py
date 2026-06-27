@@ -7,6 +7,7 @@ Internal layout is split under :mod:`pdiseg.core`, :mod:`pdiseg.detection`,
 
 from pdiseg.calibration.service import ClassStats, calibrate
 from pdiseg.core.imaging import BBox, FrameInspection, crop, render_overlay
+from pdiseg.debug.reload import assert_pipeline_schema, reload_pipeline_modules
 from pdiseg.debug.sample import (
     DebugFrameResult,
     DebugFrameView,
@@ -95,6 +96,7 @@ __all__ = [
     "RunSummary",
     "ScoredCandidate",
     "analyze_frame",
+    "assert_pipeline_schema",
     "build_candidate_masks",
     "build_sample_views",
     "calibrate",
@@ -137,6 +139,7 @@ __all__ = [
     "preprocess_image",
     "process_dataset",
     "refine_to_name_label",
+    "reload_pipeline_modules",
     "render_overlay",
     "resolve_frame_snapshot",
     "run",

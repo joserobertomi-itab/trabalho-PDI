@@ -135,15 +135,19 @@ def build_candidate_masks(
         dog_source = gray if gray is not None else work
         dog = dog_text_mask(dog_source, config)
 
-    return CandidateMasks(
-        text_density=text_density,
-        dark_luma=dark_luma,
-        black_hat=black_hat,
-        glare=glare,
-        combined=combined,
-        edge_density=edge,
-        dog_text=dog,
-    )
+    fields: dict[str, object] = {
+        "text_density": text_density,
+        "dark_luma": dark_luma,
+        "black_hat": black_hat,
+        "glare": glare,
+        "combined": combined,
+    }
+    mask_fields = CandidateMasks.__dataclass_fields__
+    if "edge_density" in mask_fields:
+        fields["edge_density"] = edge
+    if "dog_text" in mask_fields:
+        fields["dog_text"] = dog
+    return CandidateMasks(**fields)  # type: ignore[arg-type]
 
 
 def text_density_mask(work: NDArray[np.uint8], config: DetectionConfig) -> NDArray[np.bool_]:

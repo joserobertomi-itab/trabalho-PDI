@@ -1,5 +1,6 @@
 """Notebook-oriented visualization helpers (not used in graded batch output)."""
 
+from pdiseg.debug.reload import assert_pipeline_schema, reload_pipeline_modules
 from pdiseg.debug.sample import (
     DebugFrameResult,
     DebugFrameView,
@@ -41,6 +42,7 @@ __all__ = [
     "DebugSampleReport",
     "FrameDebugSnapshot",
     "analyze_frame",
+    "assert_pipeline_schema",
     "build_sample_views",
     "debug_frame",
     "draw_boxes",
@@ -58,6 +60,7 @@ __all__ = [
     "plot_frame_full_debug",
     "plot_frame_masks",
     "plot_frame_pipeline",
+    "reload_pipeline_modules",
     "resolve_frame_snapshot",
     "run_debug_sample",
     "save_debug_bundle",

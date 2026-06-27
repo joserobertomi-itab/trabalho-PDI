@@ -70,10 +70,12 @@ def find_candidate_boxes(
     boxes = boxes_from_mask(masks.combined, min_area, config, frame_area)
     boxes.extend(boxes_from_mask(masks.black_hat, min_area, config, frame_area))
     boxes.extend(boxes_from_mask(text_density_mask(text_src, config), min_area, config, frame_area))
-    if masks.edge_density is not None:
-        boxes.extend(boxes_from_mask(masks.edge_density, min_area, config, frame_area))
-    if masks.dog_text is not None:
-        boxes.extend(boxes_from_mask(masks.dog_text, min_area, config, frame_area))
+    edge_density = getattr(masks, "edge_density", None)
+    if edge_density is not None:
+        boxes.extend(boxes_from_mask(edge_density, min_area, config, frame_area))
+    dog_text = getattr(masks, "dog_text", None)
+    if dog_text is not None:
+        boxes.extend(boxes_from_mask(dog_text, min_area, config, frame_area))
     return dedupe_boxes(boxes, iou_threshold=0.55)
 
 
