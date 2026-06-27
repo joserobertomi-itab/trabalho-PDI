@@ -1,5 +1,28 @@
 ## Docker Compose
 
+### Production image
+
+Use this path when the professor should not build the image locally:
+
+```sh
+mkdir -p result calibration
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up pipeline
+docker compose -f docker-compose.prod.yml --profile tools run --rm calibrate
+```
+
+The image is published by CI to:
+
+```text
+ghcr.io/joserobertomi-itab/trabalho-pdi:latest
+```
+
+`docker-compose.prod.yml` has the runtime environment embedded directly in the file, so
+it does not require `.env`. It expects the dataset at `data/Train_and_Validation/`.
+
+After the first publish, make the GitHub Package public in the package settings so the
+professor can pull without authenticating.
+
 ### Delivery
 
 ```sh

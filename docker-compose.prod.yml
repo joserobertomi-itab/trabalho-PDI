@@ -1,0 +1,104 @@
+name: pdiseg-prod
+
+x-pdiseg-env: &pdiseg-env
+  OMP_NUM_THREADS: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
+  NUMEXPR_NUM_THREADS: "1"
+  VECLIB_MAXIMUM_THREADS: "1"
+  BLIS_NUM_THREADS: "1"
+  OPENCV_FOR_THREADS_NUM: "1"
+  PDISEG_BACKEND: "auto"
+  PDISEG_BACKEND_LOG: "1"
+  PDISEG_WORKERS: "6"
+  MAX_IMAGES: ""
+  OFFSET: "0"
+  PROGRESS_EVERY: "25"
+  PDISEG_NICE: "10"
+
+x-pdiseg-limits: &pdiseg-limits
+  cpus: "6.0"
+  mem_limit: "4g"
+  pids_limit: 128
+
+x-pdiseg-image: &pdiseg-image
+  image: ghcr.io/joserobertomi-itab/trabalho-pdi:latest
+  pull_policy: always
+
+services:
+  pipeline:
+    <<: [*pdiseg-image, *pdiseg-limits]
+    command:
+      - sh
+      - -c
+      - |
+        exec nice -n "$${PDISEG_NICE}" pdiseg /data/input /data/output \
+          --offset "$${OFFSET}" \
+          --progress-every "$${PROGRESS_EVERY}" \
+          --workers "$${PDISEG_WORKERS}"
+    volumes:
+      - ./data/Train_and_Validation:/data/input:ro
+      - ./result:/data/output
+    environment:
+      <<: *pdiseg-env
+      PDISEG_PREPARE_MOUNTS: "1"
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M,mode=1777
+
+  calibrate:
+    <<: [*pdiseg-image, *pdiseg-limits]
+    profiles: ["tools"]
+    command:
+      - sh
+      - -c
+      - |
+        exec nice -n "$${PDISEG_NICE}" pdiseg-calibrate /data/input /data/calibration \
+          --per-class-limit "9999" \
+          --offset "$${OFFSET}" \
+          --progress-every "$${PROGRESS_EVERY}" \
+          --workers "$${PDISEG_WORKERS}"
+    volumes:
+      - ./data/Train_and_Validation:/data/input:ro
+      - ./calibration:/data/calibration
+    environment:
+      <<: *pdiseg-env
+      LIMIT: "9999"
+      PDISEG_PREPARE_MOUNTS: "1"
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M,mode=1777
+
+  review:
+    <<: [*pdiseg-image, *pdiseg-limits]
+    profiles: ["tools"]
+    user: "1000:1000"
+    command:
+      - pdiseg-review
+      - --dataset
+      - /data/input
+      - --calibration
+      - /data/calibration
+      - --result
+      - /data/output
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8765"
+    ports:
+      - "8765:8765"
+    volumes:
+      - ./data/Train_and_Validation:/data/input:ro
+      - ./calibration:/data/calibration:ro
+      - ./result:/data/output:ro
+    environment:
+      <<: *pdiseg-env
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M,mode=1777

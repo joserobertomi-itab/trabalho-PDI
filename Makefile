@@ -30,6 +30,7 @@ COMPOSE_RUN = $(COMPOSE) $(if $(filter 1,$(USE_DOCKER_GPU)),-f docker-compose.ym
 
 .PHONY: help setup sync lock test lint format typecheck check ci run calibrate review debug kernel \
 	docker-build docker-up docker-calibrate docker-review docker-export docker-smoke \
+	prod-up prod-calibrate prod-review \
 	agent-check clean
 
 help: ## List all targets (run with no arguments)
@@ -112,6 +113,15 @@ docker-export: ## Copy named volumes to ./result on host
 
 docker-smoke: ## Compose E2E test (synthetic dataset)
 	bash scripts/docker-smoke.sh
+
+prod-up: ## Run published GHCR image via docker-compose.prod.yml
+	docker compose -f docker-compose.prod.yml up pipeline
+
+prod-calibrate: ## Calibrate with published GHCR image via docker-compose.prod.yml
+	docker compose -f docker-compose.prod.yml --profile tools run --rm calibrate
+
+prod-review: ## Review with published GHCR image via docker-compose.prod.yml
+	docker compose -f docker-compose.prod.yml --profile tools up review
 
 agent-check: ## Validate agent harness (.agents, skills, rules)
 	bash scripts/agent-harness-check.sh

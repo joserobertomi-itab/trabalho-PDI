@@ -91,6 +91,34 @@ make review PORT=9000
 
 ## 7. Docker (delivery)
 
+### Production image from GitHub Packages
+
+After the CI publishes the image, a professor can run without building locally and
+without a `.env` file:
+
+```sh
+mkdir -p result calibration
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up pipeline
+docker compose -f docker-compose.prod.yml --profile tools run --rm calibrate
+```
+
+The production Compose uses:
+
+```text
+ghcr.io/joserobertomi-itab/trabalho-pdi:latest
+```
+
+Put the dataset in `data/Train_and_Validation/`. Outputs are written to `result/` and
+`calibration/`.
+
+The GitHub Actions CI publishes this image on pushes to `main`, version tags like
+`v1.0.0`, and manual workflow runs. After the first package is created, open the
+package settings in GitHub Packages and set its visibility to **Public** so it can be
+pulled without login.
+
+### Local build
+
 ```sh
 mkdir -p result calibration
 cp .env.example .env
@@ -209,6 +237,9 @@ Run `make` or `make help` to list targets.
 | `make docker-up` | Pipeline in Docker |
 | `make docker-calibrate` | Calibrate in Docker |
 | `make docker-review` | Review in Docker |
+| `make prod-up` | Pipeline from published GHCR image |
+| `make prod-calibrate` | Calibrate from published GHCR image |
+| `make prod-review` | Review from published GHCR image |
 | `make docker-export` | Copy named volume → `./result` |
 | `make test` | pytest |
 | `make lint` | ruff check |
