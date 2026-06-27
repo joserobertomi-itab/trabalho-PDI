@@ -12,6 +12,7 @@ from scipy.ndimage import median_filter, uniform_filter
 from pdiseg.io.dataset import FPS_OVERLAY_REGION
 
 from .config import DetectionConfig
+from .roi import apply_horizontal_exclusion_to_image, horizontal_roi_bounds
 
 
 @dataclass(frozen=True)
@@ -24,7 +25,7 @@ class PreprocessResult:
 def preprocess_image(
     image: NDArray[np.uint8], config: DetectionConfig | None = None
 ) -> PreprocessResult:
-    _ = config
+    cfg = config or DetectionConfig()
     from skimage.exposure import equalize_adapthist
     from skimage.util import img_as_ubyte
 
@@ -39,6 +40,9 @@ def preprocess_image(
     work = clahe.copy()
     x, y, w, h = FPS_OVERLAY_REGION
     work[y : y + h, x : x + w] = int(np.median(work))
+    roi_x0, roi_x1 = horizontal_roi_bounds(work.shape[1], cfg)
+    gray = apply_horizontal_exclusion_to_image(gray, roi_x0, roi_x1)
+    work = apply_horizontal_exclusion_to_image(work, roi_x0, roi_x1)
     return PreprocessResult(gray=gray, clahe=clahe, work=work)
 
 

@@ -58,6 +58,9 @@ class DetectionConfig:
     dog_dilate_size: int = 11
     # TASK-07: adaptive dark-body + lateral margin
     lateral_margin_frac: float = 0.0
+    # Ignore conveyor-side cardboard / box-edge text (asymmetric ROI).
+    exclude_left_frac: float = 0.20
+    exclude_right_frac: float = 0.08
     min_body_overlap: float = 0.0
     body_block_div: int = 6
     body_C: int = 18

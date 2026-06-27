@@ -15,6 +15,7 @@ from pdiseg.core.imaging import BBox
 from .candidates import find_candidate_boxes
 from .config import DetectionConfig
 from .masks import dark_body_mask, opened_background
+from .roi import box_inside_horizontal_roi, horizontal_roi_bounds
 from .scoring import ScoredCandidate, score_candidates
 
 
@@ -32,9 +33,9 @@ def keep_label_clusters(
     frame_width: int | None = None,
 ) -> list[BBox]:
     cfg = config or DetectionConfig()
-    lateral = 0
-    if cfg.lateral_margin_frac > 0 and frame_width is not None:
-        lateral = int(frame_width * cfg.lateral_margin_frac)
+    x0, x1 = (0, frame_width or 0)
+    if frame_width is not None:
+        x0, x1 = horizontal_roi_bounds(frame_width, cfg)
     kept: list[BBox] = []
     for x, y, w, h in candidates:
         area = w * h
@@ -43,7 +44,7 @@ def keep_label_clusters(
             continue
         if elongation > cfg.label_max_elongation:
             continue
-        if lateral > 0 and (x < lateral or x + w > frame_width - lateral):  # type: ignore[operator]
+        if frame_width is not None and not box_inside_horizontal_roi((x, y, w, h), x0, x1):
             continue
         kept.append((x, y, w, h))
     return kept
@@ -286,9 +287,9 @@ def _passes_relaxed_product_anchor_gate(
         min_area = max(min_area, 0.006)
     frame_width = features.get("frame_width", 0.0)
     if frame_width > 0:
-        edge_margin = frame_width * 0.025
+        x0, x1 = horizontal_roi_bounds(int(frame_width), config)
         x, _, w, _ = item.box
-        if x < edge_margin or x + w > frame_width - edge_margin:
+        if not box_inside_horizontal_roi((x, item.box[1], w, item.box[3]), x0, x1):
             return False
 
     if not (min_area <= area_frac <= max_area):

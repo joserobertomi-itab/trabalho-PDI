@@ -18,6 +18,7 @@ from skimage.morphology import black_tophat, disk, footprint_rectangle, opening
 from skimage.segmentation import clear_border
 
 from .config import DetectionConfig
+from .roi import horizontal_roi_bounds, mask_horizontal_roi
 
 
 @dataclass(frozen=True)
@@ -147,7 +148,21 @@ def build_candidate_masks(
         fields["edge_density"] = edge
     if "dog_text" in mask_fields:
         fields["dog_text"] = dog
-    return CandidateMasks(**fields)  # type: ignore[arg-type]
+    masks = CandidateMasks(**fields)  # type: ignore[arg-type]
+    roi_x0, roi_x1 = horizontal_roi_bounds(width, config)
+    return CandidateMasks(
+        text_density=mask_horizontal_roi(masks.text_density, roi_x0, roi_x1),
+        dark_luma=mask_horizontal_roi(masks.dark_luma, roi_x0, roi_x1),
+        black_hat=mask_horizontal_roi(masks.black_hat, roi_x0, roi_x1),
+        glare=masks.glare,
+        combined=mask_horizontal_roi(masks.combined, roi_x0, roi_x1),
+        edge_density=mask_horizontal_roi(masks.edge_density, roi_x0, roi_x1)
+        if masks.edge_density is not None
+        else None,
+        dog_text=mask_horizontal_roi(masks.dog_text, roi_x0, roi_x1)
+        if masks.dog_text is not None
+        else None,
+    )
 
 
 def text_density_mask(work: NDArray[np.uint8], config: DetectionConfig) -> NDArray[np.bool_]:

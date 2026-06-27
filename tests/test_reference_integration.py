@@ -114,7 +114,7 @@ def test_dog_text_mask_finds_bright_text_on_dark_strip() -> None:
 def test_lateral_margin_rejects_edge_hugging_box() -> None:
     from pdiseg.detection.postprocess import keep_label_clusters
 
-    cfg = DetectionConfig(lateral_margin_frac=0.05)
+    cfg = DetectionConfig(exclude_left_frac=0.05, exclude_right_frac=0.05)
     edge_box = (5, 80, 150, 100)
     inner_box = (200, 80, 150, 100)
     kept = keep_label_clusters([edge_box, inner_box], cfg, frame_width=500)
