@@ -28,7 +28,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
         uv sync --frozen --no-dev; \
     fi
 
-FROM python:3.12-slim-bookworm AS runtime
+FROM python:3.14-slim-bookworm AS runtime
 
 LABEL org.opencontainers.image.title="pdiseg" \
       org.opencontainers.image.description="Poultry packaging name-label segmentation (classical PDI)" \
