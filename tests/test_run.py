@@ -250,6 +250,29 @@ def test_postprocess_expands_product_anchor_to_adjacent_brand_context():
     assert x + w >= 310 and y + h >= 165
 
 
+def test_postprocess_falls_back_to_anchor_when_expansion_is_too_wide():
+    img = np.full((720, 1280), 125, dtype=np.uint8)
+    img[580:690, 300:1020] = 68
+    img[605:680, 580:760] = 25
+    for x in range(596, 748, 12):
+        img[620:665, x : x + 4] = 225
+
+    config = pdiseg.DetectionConfig()
+    labels, _, kept = pdiseg.postprocess_boxes(
+        img,
+        img,
+        [(300, 580, 720, 110), (580, 605, 180, 75)],
+        config,
+    )
+
+    assert len(kept) == 1
+    assert len(labels) == 1
+    x, _, w, h = labels[0]
+    assert w / h <= config.final_cluster_max_aspect
+    assert x <= 580 and x + w >= 760
+    assert w < 360
+
+
 def test_postprocess_does_not_merge_unrelated_text_into_cluster():
     img = np.full((240, 420), 125, dtype=np.uint8)
     img[30:80, 30:110] = 210

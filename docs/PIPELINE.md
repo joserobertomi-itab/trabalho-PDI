@@ -279,7 +279,18 @@ Multiplicative penalties/boosts apply for low dark density, high glare, bright p
 4. Prefer context above the anchor so the adjacent brand badge is included when visible.
 5. If no context is found, apply directional padding: mostly upward and sideways, modest downward.
 
-### 9.3 Final selection
+### 9.3 Final emission gate
+
+After expansion, the proposed crop is validated again as an emitted label cluster. This gate is intentionally separate from the product-anchor gate:
+
+1. The anchor gate is recall-oriented enough to keep valid narrow or wide product badges.
+2. The final cluster gate is precision-oriented: it rejects expanded crops with suspicious area, extreme aspect ratio, weak text/edge evidence, or wide bright-on-light/background context.
+3. When the expanded cluster fails but the product anchor is still valid, the pipeline emits a lightly padded anchor instead of the bad expanded crop.
+4. If both the expanded crop and the padded anchor fail, the frame emits no crop.
+
+This protects the final `result/` output from plastic glare strips, nutrition-table regions, conveyor noise, and over-expanded brand/context boxes while preserving the product badge that drove the detection.
+
+### 9.4 Final selection
 
 1. Rank detections from anchor score, source candidate score, and expansion bonus.
 2. Apply NMS on final cluster boxes.
@@ -412,6 +423,12 @@ All thresholds live in `detection/config.py` as a frozen dataclass. Defaults are
 | `final_min_extent` | 0.45 |
 | `final_min_area_frac` / `final_max_area_frac` | 0.0025 / 0.045 |
 | `final_min_aspect` / `final_max_aspect` | 0.25 / 4.5 |
+| `final_cluster_min_area_frac` / `final_cluster_max_area_frac` | 0.0045 / 0.075 |
+| `final_cluster_min_aspect` / `final_cluster_max_aspect` | 0.30 / 3.25 |
+| `final_cluster_wide_aspect` | 2.85 |
+| `final_cluster_wide_min_bright_on_dark` | 0.030 |
+| `final_cluster_wide_max_background_level` | 118.0 |
+| `final_cluster_anchor_fallback_min_area_frac` | 0.006 |
 | `cluster_expand_up_frac` / `cluster_expand_side_frac` / `cluster_expand_down_frac` | 0.90 / 0.55 / 0.18 |
 | `cluster_context_max_gap_frac` | 1.15 |
 | `cluster_context_min_axis_overlap` | 0.22 |

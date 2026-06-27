@@ -423,6 +423,111 @@ def _cluster_max_area_frac(config: DetectionConfig, frame_area: int) -> float:
     return max_frac
 
 
+def _final_cluster_area_bounds(
+    config: DetectionConfig, frame_area: float, *, allow_anchor_fallback: bool
+) -> tuple[float, float]:
+    min_area = config.final_cluster_min_area_frac
+    max_area = config.final_cluster_max_area_frac
+    if allow_anchor_fallback:
+        min_area = min(min_area, config.final_min_area_frac * 0.70)
+        if frame_area >= 300_000:
+            min_area = max(min_area, config.final_cluster_anchor_fallback_min_area_frac)
+        max_area = max(max_area, config.final_max_area_frac)
+    if frame_area and frame_area < 300_000:
+        min_area = min(min_area, config.min_area_frac)
+        max_area = max(max_area, 0.50)
+    return min_area, max_area
+
+
+def _passes_final_cluster_emission_gate(
+    item: ScoredCandidate,
+    config: DetectionConfig,
+    *,
+    allow_anchor_fallback: bool = False,
+) -> bool:
+    if not config.use_final_product_badge_gate:
+        return True
+
+    features = item.features
+    frame_area = features.get("frame_area", 0.0)
+    area_frac = features.get("area_frac", box_area(item.box) / max(frame_area, 1.0))
+    aspect = features.get("aspect", item.box[2] / max(item.box[3], 1))
+    min_area, max_area = _final_cluster_area_bounds(
+        config, frame_area, allow_anchor_fallback=allow_anchor_fallback
+    )
+
+    min_aspect = config.final_cluster_min_aspect
+    max_aspect = config.final_cluster_max_aspect
+    if allow_anchor_fallback:
+        min_aspect = config.final_min_aspect * 0.80
+        max_aspect = config.final_max_aspect
+
+    if not (min_area <= area_frac <= max_area):
+        return False
+    if not (min_aspect <= aspect <= max_aspect):
+        return False
+
+    bright = features.get("bright_on_dark", 0.0)
+    background = features.get("background_level", 255.0)
+    edge = features.get("edge_density", 0.0)
+    text = features.get("text_density", 0.0)
+    dark = features.get("dark_density", 0.0)
+    bimodal = features.get("bimodal_score", 0.0)
+    contrast = features.get("bimodal_contrast", 0.0)
+
+    if edge < max(0.12, config.final_min_edge_density * 0.65):
+        return False
+
+    has_bright_glyphs = bright >= 0.025
+    has_structured_dark_label = (
+        dark >= 0.20
+        and edge >= config.final_min_edge_density
+        and text >= 0.16
+        and (bimodal >= 0.22 or contrast >= 24.0)
+    )
+    if not (has_bright_glyphs or has_structured_dark_label):
+        return False
+
+    if not allow_anchor_fallback and aspect >= config.final_cluster_wide_aspect:
+        if bright < config.final_cluster_wide_min_bright_on_dark:
+            return False
+        if background > config.final_cluster_wide_max_background_level:
+            return False
+
+    return not (
+        not allow_anchor_fallback
+        and aspect <= config.final_cluster_min_aspect * 1.05
+        and bright < config.final_cluster_wide_min_bright_on_dark
+        and edge < 0.30
+    )
+
+
+def _validated_cluster_or_anchor(
+    image: NDArray[np.uint8],
+    work: NDArray[np.uint8],
+    cluster: BBox,
+    anchor: BBox,
+    config: DetectionConfig,
+    *,
+    opened: NDArray[np.uint8] | None = None,
+    body: NDArray[np.bool_] | None = None,
+) -> BBox | None:
+    height, width = image.shape[:2]
+    cluster_score = score_candidates(image, work, [cluster], config, opened=opened, body=body)[0]
+    if _passes_final_cluster_emission_gate(cluster_score, config):
+        return cluster
+
+    fallback = pad_box(anchor, width, height, config.crop_padding_frac * 0.5)
+    fallback_score = score_candidates(
+        image, work, [fallback], config, opened=opened, body=body
+    )[0]
+    if _passes_final_cluster_emission_gate(
+        fallback_score, config, allow_anchor_fallback=True
+    ):
+        return fallback
+    return None
+
+
 def _is_adjacent_label_context(
     anchor: BBox, candidate: BBox, item: ScoredCandidate, config: DetectionConfig
 ) -> bool:
@@ -694,7 +799,7 @@ def _build_cluster_detections(
             continue
         if anchor_score.score < config.refine_score_floor:
             continue
-        cluster = expand_to_label_cluster(
+        expanded_cluster = expand_to_label_cluster(
             image,
             work,
             anchor,
@@ -704,6 +809,18 @@ def _build_cluster_detections(
             opened=opened,
             body=body,
         )
+        validated_cluster = _validated_cluster_or_anchor(
+            image,
+            work,
+            expanded_cluster,
+            anchor,
+            config,
+            opened=opened,
+            body=body,
+        )
+        if validated_cluster is None:
+            continue
+        cluster = validated_cluster
         if box_area(cluster) <= 0 or box_area(cluster) / max(
             frame_area, 1
         ) > _cluster_max_area_frac(config, frame_area):

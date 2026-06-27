@@ -1,3 +1,37 @@
+# pdiseg — production delivery (published GHCR image, no local build)
+#
+# Prerequisites (run once):
+#   mkdir -p result calibration
+#   dataset must exist at ./data/Train_and_Validation/
+#
+# Step 1 — segment full dataset (THIS is the only service started by plain `up`):
+#   docker compose -f docker-compose.prod.yml pull
+#   docker compose -f docker-compose.prod.yml up pipeline
+#   # writes crops to ./result/
+#
+# Step 2 — calibration overlays (run only AFTER pipeline has finished):
+#   docker compose -f docker-compose.prod.yml --profile tools run --rm calibrate
+#   # writes ./calibration/boxes.json, stats.csv, overlays
+#
+# Step 3 — review viewer (run only AFTER calibrate has finished):
+#   docker compose -f docker-compose.prod.yml --profile tools up review
+#   # open http://localhost:8765/
+#
+# All three steps in order (pipeline → calibrate → review, never in parallel):
+#   docker compose -f docker-compose.prod.yml --profile tools up
+#
+# Chunked run (optional):
+#   PDISEG_WORKERS=4 docker compose -f docker-compose.prod.yml up pipeline
+#   MAX_IMAGES=100 OFFSET=0 docker compose -f docker-compose.prod.yml up pipeline
+#   MAX_IMAGES=100 OFFSET=100 docker compose -f docker-compose.prod.yml up pipeline
+#
+# Notes:
+# - `calibrate` and `review` use profile "tools" — they are NOT started by
+#   `docker compose -f docker-compose.prod.yml up` alone (only `pipeline` runs).
+# - When using `--profile tools up`, `depends_on` waits for each step to finish
+#   before starting the next (no overlap).
+# - Image: ghcr.io/joserobertomi-itab/trabalho-pdi:latest
+
 name: pdiseg-prod
 
 x-pdiseg-env: &pdiseg-env
@@ -28,11 +62,16 @@ x-pdiseg-image: &pdiseg-image
 services:
   pipeline:
     <<: [*pdiseg-image, *pdiseg-limits]
+    restart: "no"
     command:
       - sh
       - -c
       - |
-        exec nice -n "$${PDISEG_NICE}" pdiseg /data/input /data/output \
+        set -- pdiseg /data/input /data/output
+        if [ -n "$${MAX_IMAGES}" ]; then
+          set -- "$$@" --limit "$${MAX_IMAGES}"
+        fi
+        exec nice -n "$${PDISEG_NICE}" "$$@" \
           --offset "$${OFFSET}" \
           --progress-every "$${PROGRESS_EVERY}" \
           --workers "$${PDISEG_WORKERS}"
@@ -51,12 +90,19 @@ services:
   calibrate:
     <<: [*pdiseg-image, *pdiseg-limits]
     profiles: ["tools"]
+    restart: "no"
+    depends_on:
+      pipeline:
+        condition: service_completed_successfully
     command:
       - sh
       - -c
       - |
-        exec nice -n "$${PDISEG_NICE}" pdiseg-calibrate /data/input /data/calibration \
-          --per-class-limit "9999" \
+        set -- pdiseg-calibrate /data/input /data/calibration --per-class-limit "9999"
+        if [ -n "$${MAX_IMAGES}" ]; then
+          set -- "$$@" --limit "$${MAX_IMAGES}"
+        fi
+        exec nice -n "$${PDISEG_NICE}" "$$@" \
           --offset "$${OFFSET}" \
           --progress-every "$${PROGRESS_EVERY}" \
           --workers "$${PDISEG_WORKERS}"
@@ -76,6 +122,9 @@ services:
   review:
     <<: [*pdiseg-image, *pdiseg-limits]
     profiles: ["tools"]
+    depends_on:
+      calibrate:
+        condition: service_completed_successfully
     user: "1000:1000"
     command:
       - pdiseg-review

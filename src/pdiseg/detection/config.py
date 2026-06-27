@@ -80,6 +80,14 @@ class DetectionConfig:
     final_max_area_frac: float = 0.045
     final_min_aspect: float = 0.25
     final_max_aspect: float = 4.5
+    final_cluster_min_area_frac: float = 0.0045
+    final_cluster_max_area_frac: float = 0.075
+    final_cluster_min_aspect: float = 0.30
+    final_cluster_max_aspect: float = 3.25
+    final_cluster_wide_aspect: float = 2.85
+    final_cluster_wide_min_bright_on_dark: float = 0.030
+    final_cluster_wide_max_background_level: float = 118.0
+    final_cluster_anchor_fallback_min_area_frac: float = 0.006
     cluster_expand_up_frac: float = 0.90
     cluster_expand_side_frac: float = 0.55
     cluster_expand_down_frac: float = 0.18
