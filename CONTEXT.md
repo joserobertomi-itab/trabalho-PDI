@@ -4,17 +4,17 @@ Glossary for this repo. Class folder names stay in Portuguese because they match
 
 ## What we're building
 
-Segment poultry packaging in industrial camera frames (PDI class, IFG). Find each **name label** (dark badge with product name) and write a crop per detection. No OCR, no product classification.
+Segment poultry packaging in industrial camera frames (PDI class, IFG). Find a validated **label cluster** per frame and write a crop per detection. The crop must contain product-type label evidence and may include the adjacent brand badge. No OCR, no product classification.
 
 ## Terms
 
 - **bandeja** / **selado** — tray vs sealed packaging in the dataset.
-- **Name label** — dark rounded rectangle with the product name (e.g. "FILÉ DE PEITO"). Target of segmentation.
+- **Name label** — product-type badge/region carrying the product name (e.g. "FILÉ DE PEITO"). Used as mandatory product evidence inside a final crop.
 - **Brand badge** — "SUPER FRANGO" logo next to the name label; not the target alone but helps locate clusters.
-- **Label cluster** — brand badge + name label treated as one blob in stage 1; then refined to the name label.
+- **Label cluster** — production crop target: name label plus adjacent brand/context when they form the same local package label. A brand-only crop is invalid.
 - **Class** — one product folder under `dataset/` (e.g. `Moela`). Used only for output paths.
 - **False positive** — crop without the right product name (or only generic "frango").
-- **Overlay** — source frame with boxes drawn (red rejected, yellow kept, green final labels).
+- **Overlay** — source frame with boxes drawn (red rejected candidates, yellow product anchors, green final label clusters).
 - **Review viewer** — small web UI (`pdiseg-review`) to browse source, overlay and crops. Not part of graded pipeline.
 
 ## Dataset
@@ -28,6 +28,8 @@ Class folders (names as in data): Asas Resfriado Selado, Meio das Asas Congelado
 ```
 dataset/<Class>/<image>.jpg  →  result/<Class>/<stem>_segmented_N.png
 ```
+
+Full I/O and batch runner details: [docs/PIPELINE.md §3](docs/PIPELINE.md#3-io-layer-pdisegio-dataset).
 
 ## Allowed techniques
 

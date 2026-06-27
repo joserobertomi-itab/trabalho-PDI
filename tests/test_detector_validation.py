@@ -9,10 +9,10 @@ from pdiseg.core.boxes import clamp_box
 def test_process_dataset_creates_result_tree(tmp_path):
     dataset = tmp_path / "dataset" / "ClassA"
     dataset.mkdir(parents=True)
-    frame = np.tile(np.linspace(0, 255, 80).astype(np.uint8), (60, 1))
-    frame[20:40, 30:60] = 30
-    for x in range(30, 60, 6):
-        frame[20:40, x : x + 2] = 220
+    frame = np.tile(np.linspace(50, 180, 320).astype(np.uint8), (240, 1))
+    frame[90:150, 120:240] = 30
+    for x in range(130, 230, 10):
+        frame[100:140, x : x + 4] = 220
     iio.imwrite(dataset / "img.png", frame)
 
     report = pdiseg.process_dataset(dataset.parent, tmp_path / "result")
@@ -25,6 +25,8 @@ def test_saved_crops_are_non_empty(tmp_path):
     dataset.mkdir(parents=True)
     frame = np.full((120, 160), 90, dtype=np.uint8)
     frame[40:80, 50:110] = 25
+    for x in range(54, 106, 10):
+        frame[46:74, x : x + 2] = 220
     iio.imwrite(dataset / "img.png", frame)
 
     pdiseg.run(dataset.parent, tmp_path / "result")

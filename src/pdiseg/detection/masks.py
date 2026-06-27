@@ -10,7 +10,6 @@ from scipy.ndimage import (
     binary_closing,
     binary_dilation,
     binary_opening,
-    gaussian_filter,
     median_filter,
     sobel,
     uniform_filter,
@@ -29,6 +28,7 @@ class CandidateMasks:
     glare: NDArray[np.bool_]
     combined: NDArray[np.bool_]
     edge_density: NDArray[np.bool_] | None = None
+    dog_text: NDArray[np.bool_] | None = None
 
 
 def glare_mask(image: NDArray[np.uint8], config: DetectionConfig) -> NDArray[np.bool_]:
@@ -77,11 +77,12 @@ def dark_body_mask(gray: NDArray[np.uint8], config: DetectionConfig) -> NDArray[
 
 
 def dog_text_mask(gray: NDArray[np.uint8], config: DetectionConfig) -> NDArray[np.bool_]:
-    """DoG-style bright text on locally dark background (reference_segment_label L209-223)."""
+    """DoG-style bright text on locally dark background."""
     height, width = gray.shape
     values = gray.astype(np.float32)
     sigma = min(config.dog_sigma, min(height, width) / 10.0)
-    background = gaussian_filter(values, sigma=max(3.0, sigma))
+    window = max(7, int(max(3.0, sigma) * 2.0) | 1)
+    background = uniform_filter(values, size=window)
     dark_bg = background < np.percentile(background, config.dog_bg_percentile)
     text = ((values - background) > config.dog_contrast_threshold) & dark_bg
     bold_r = max(1, config.dog_bold_size // 2)
@@ -129,6 +130,10 @@ def build_candidate_masks(
     edge: NDArray[np.bool_] | None = None
     if gray is not None:
         edge = edge_density_mask(gray, config)
+    dog: NDArray[np.bool_] | None = None
+    if config.use_dog_text:
+        dog_source = gray if gray is not None else work
+        dog = dog_text_mask(dog_source, config)
 
     return CandidateMasks(
         text_density=text_density,
@@ -137,6 +142,7 @@ def build_candidate_masks(
         glare=glare,
         combined=combined,
         edge_density=edge,
+        dog_text=dog,
     )
 
 

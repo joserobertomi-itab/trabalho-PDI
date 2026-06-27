@@ -2,6 +2,8 @@
 
 Python package lives under ``src/pdiseg/`` (src layout). The installable name remains **pdiseg**.
 
+**Full pipeline reference (I/O, preprocessing, every stage, config):** [PIPELINE.md](../PIPELINE.md)
+
 ## Package map
 
 ```
@@ -37,10 +39,12 @@ src/pdiseg/
 ## Data flow
 
 1. **io.dataset** — `find_source_images`, `load_image`
-2. **detection.preprocess** — CLAHE work image; mask FPS burn-in
-3. **detection.candidates** — masks → raw boxes (text density from gray)
-4. **detection.scoring** + **detection.postprocess** — rank, NMS, refine
-5. **runtime.pipeline** — write crops to `result/<class>/`
+2. **detection.preprocess** — median denoise, CLAHE work image, FPS burn-in mask
+3. **detection.masks** + **detection.candidates** — boolean masks → connected components → raw boxes
+4. **detection.postprocess** — `keep_label_clusters` (geometry), score, extract product anchors, expand label clusters
+5. **runtime.pipeline** — crop original frame, write `result/<class>/`
+
+See [PIPELINE.md](../PIPELINE.md) for stage-by-stage algorithms and `DetectionConfig` fields.
 
 ## Import conventions
 
@@ -63,3 +67,7 @@ src/pdiseg/
 | `pdiseg` | `pdiseg.cli.segment` |
 | `pdiseg-calibrate` | `pdiseg.cli.calibrate` |
 | `pdiseg-review` | `pdiseg.cli.review` |
+
+## Documentation index
+
+[docs/README.md](../README.md)

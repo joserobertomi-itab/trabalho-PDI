@@ -150,6 +150,7 @@ Run `make` or `make help` to list targets.
 | `make run` | Segment → `result/` |
 | `make calibrate` | Write `calibration/` |
 | `make review` | Web viewer |
+| `make debug` | Full pipeline on 1 image/class → `debug_result/` |
 | `make docker-up` | Pipeline in Docker |
 | `make docker-calibrate` | Calibrate in Docker |
 | `make docker-review` | Review in Docker |
@@ -168,6 +169,7 @@ Run `make` or `make help` to list targets.
 uv run pdiseg [INPUT] [OUTPUT]
 uv run pdiseg-calibrate [INPUT] [OUTPUT_DIR] [--per-class-limit N]
 uv run pdiseg-review --dataset DATA --calibration CALIB --result OUT [--port 8765]
+uv run pdiseg-debug [INPUT] [OUTPUT] [--bundle-root DIR] [--per-class N]
 ```
 
 ---
@@ -181,7 +183,7 @@ uv run pdiseg-review --dataset DATA --calibration CALIB --result OUT [--port 876
 
 ## 10. Modular pipeline and debug
 
-Detection lives under `src/pdiseg/`:
+Detection lives under `src/pdiseg/`. **Full technical reference:** [docs/PIPELINE.md](./docs/PIPELINE.md) (I/O, preprocessing, masks, scoring, postprocess, config). **Doc index:** [docs/README.md](./docs/README.md).
 
 | Function | Module |
 |----------|--------|
@@ -202,10 +204,11 @@ Pipeline improvements: [docs/PIPELINE_IMPROVEMENTS.md](./docs/PIPELINE_IMPROVEME
 
 ```sh
 make setup
+make debug          # optional: run sample from terminal first
 uv run jupyter notebook debug.ipynb
 ```
 
-The notebook covers setup, dataset diagnostics, masks, scoring, postprocess, saving to `result/`, and per-class reports. Optional debug images go to `debug_result/` (not part of the deliverable).
+The notebook runs the **full production pipeline** on one image per class, writes to `debug_result/result/` and `debug_result/bundles/`, then visualizes masks, scores, and crops. Optional debug images never go into graded `result/`.
 
 ### AI harness
 

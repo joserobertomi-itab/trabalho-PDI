@@ -1,5 +1,7 @@
 # Two-stage label detection: locate the label cluster, then refine to the name label
 
+Status: partially superseded by [ADR-0005](0005-final-output-label-cluster.md) for final output geometry.
+
 The segmentation target is the **name label** (the dark badge carrying the product
 name). The obvious approach — threshold the frame for dark regions and label the
 blobs directly — was tried and fails: a global Otsu threshold merges each badge with

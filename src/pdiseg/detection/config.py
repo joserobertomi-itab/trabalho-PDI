@@ -10,9 +10,10 @@ class DetectionConfig:
     """Relative thresholds for label detection (frame-size aware, no per-class tuning)."""
 
     score_threshold: float = 0.48
-    score_threshold_fallback: float = 0.40
+    score_threshold_fallback: float = 0.36
     score_relative_min: float = 0.58
     refine_score_floor: float = 0.36
+    anchor_search_max_candidates: int = 28
     nms_iou: float = 0.30
     merge_distance_frac: float = 0.010
     min_area_frac: float = 0.0008
@@ -20,6 +21,8 @@ class DetectionConfig:
     min_aspect: float = 0.20
     max_aspect: float = 5.0
     max_labels_per_frame: int = 6
+    primary_cluster_only: bool = True
+    additional_cluster_score_ratio: float = 0.92
     crop_padding_frac: float = 0.04
     glare_percentile: float = 92.0
     dark_percentile: float = 36.0
@@ -46,8 +49,8 @@ class DetectionConfig:
     # TASK-04: extent + bimodality
     extent_target: float = 0.48
     bimodality_min_class_frac: float = 0.30
-    # TASK-06: optional DoG text mask (off by default)
-    use_dog_text: bool = False
+    # TASK-06: DoG text mask for bright product text on a locally dark field.
+    use_dog_text: bool = True
     dog_sigma: float = 45.0
     dog_contrast_threshold: float = 24.0
     dog_bg_percentile: float = 66.0
@@ -64,3 +67,25 @@ class DetectionConfig:
     gate_max_background_level: float = 118.0
     gate_min_extent: float = 0.40
     gate_min_edge_density: float = 0.05
+    # Final product-badge gate: precision-first emission filter.
+    use_final_product_badge_gate: bool = True
+    final_min_bright_on_dark: float = 0.040
+    final_max_background_level: float = 114.0
+    final_min_edge_density: float = 0.18
+    final_min_extent: float = 0.45
+    final_min_area_frac: float = 0.0025
+    final_max_area_frac: float = 0.045
+    final_min_aspect: float = 0.25
+    final_max_aspect: float = 4.5
+    cluster_expand_up_frac: float = 0.90
+    cluster_expand_side_frac: float = 0.55
+    cluster_expand_down_frac: float = 0.18
+    cluster_context_max_gap_frac: float = 1.15
+    cluster_context_min_axis_overlap: float = 0.22
+    cluster_context_min_edge_density: float = 0.05
+    cluster_context_min_bimodal_score: float = 0.10
+    cluster_context_max_area_scale: float = 6.5
+    fragment_group_iou: float = 0.12
+    fragment_group_containment: float = 0.55
+    fragment_group_gap_frac: float = 0.16
+    fragment_group_max_scale_ratio: float = 3.0

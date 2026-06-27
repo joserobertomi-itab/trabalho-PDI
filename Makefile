@@ -9,7 +9,7 @@ COMPOSE ?= docker compose
 
 .DEFAULT_GOAL := help
 
-.PHONY: help setup sync lock test lint format typecheck check ci run calibrate review \
+.PHONY: help setup sync lock test lint format typecheck check ci run calibrate review debug kernel \
 	docker-build docker-up docker-calibrate docker-review docker-export docker-smoke \
 	agent-check clean
 
@@ -21,7 +21,10 @@ help: ## List all targets (run with no arguments)
 	@echo "  DATA=$(DATA)   OUT=$(OUT)   CALIB=$(CALIB)   LIMIT=$(LIMIT)   PORT=$(PORT)"
 	@echo "  Example: make run DATA=dataset OUT=result"
 
-setup: sync ## Install dependencies (uv sync --extra dev)
+setup: sync kernel ## Install dependencies (uv sync --extra dev)
+
+kernel: ## Register Jupyter kernel for this project (.venv)
+	$(PY) -m ipykernel install --user --name pdiseg --display-name "Python (pdiseg)"
 
 sync: ## Sync venv with uv.lock
 	$(UV) sync --extra dev
@@ -54,6 +57,9 @@ calibrate: ## Write calibration/ (overlays, boxes.json, stats.csv)
 
 review: ## Open viewer at http://127.0.0.1:$(PORT)/
 	$(PY) pdiseg-review --dataset $(DATA) --calibration $(CALIB) --result $(OUT) --port $(PORT)
+
+debug: ## Run full pipeline on sample (1 image/class) → debug_result/
+	$(PY) pdiseg-debug $(DATA) debug_result/result --bundle-root debug_result/bundles --per-class 1
 
 docker-build: ## Build pdiseg:latest image
 	$(COMPOSE) build pipeline

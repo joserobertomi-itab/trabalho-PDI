@@ -191,6 +191,10 @@ def score_candidate(
     score = float(np.clip(score, 0.0, 1.0))
 
     features = {
+        "box_area": float(box_area(box)),
+        "frame_area": float(frame_area),
+        "frame_width": float(width),
+        "frame_height": float(height),
         "area_frac": area_frac,
         "aspect": aspect,
         "inner_mean": inner_mean,
@@ -221,12 +225,15 @@ def score_candidates(
     work: NDArray[np.uint8],
     boxes: list[BBox],
     config: DetectionConfig,
+    *,
+    opened: NDArray[np.uint8] | None = None,
+    body: NDArray[np.bool_] | None = None,
 ) -> list[ScoredCandidate]:
     if not boxes:
         return []
-    opened = opened_background(image, config)
-    body: NDArray[np.bool_] | None = None
-    if config.min_body_overlap > 0:
+    if opened is None:
+        opened = opened_background(image, config)
+    if body is None and config.min_body_overlap > 0:
         body = dark_body_mask(image, config)
     return [
         score_candidate(image, work, box, config, opened=opened, body=body) for box in boxes

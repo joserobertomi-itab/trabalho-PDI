@@ -141,6 +141,197 @@ def test_refine_to_name_label_falls_back_when_no_dark_region():
     assert pdiseg.refine_to_name_label(img, cluster) == cluster
 
 
+def test_refine_to_name_label_prefers_textured_dark_badge_over_plain_shadow():
+    img = np.full((220, 520), 120, dtype=np.uint8)
+    img[50:150, 80:210] = 28
+    img[60:140, 230:360] = 32
+    for x in range(238, 350, 10):
+        img[70:130, x : x + 4] = 220
+    cluster = (80, 50, 280, 100)
+
+    rx, _, rw, _ = pdiseg.refine_to_name_label(img, cluster)
+
+    assert rx >= 220
+    assert rx + rw <= 365
+
+
+def test_refine_to_name_label_handles_stale_autoreload_helper(monkeypatch):
+    from pdiseg.detection import postprocess
+
+    img = np.full((220, 520), 120, dtype=np.uint8)
+    img[60:140, 230:360] = 32
+    for x in range(238, 350, 10):
+        img[70:130, x : x + 4] = 220
+
+    monkeypatch.delattr(postprocess, "_projection_split_boxes")
+
+    box = pdiseg.refine_to_name_label(img, (210, 50, 170, 100))
+
+    assert box[2] > 0 and box[3] > 0
+
+
+def test_postprocess_rejects_text_on_light_brand_badge():
+    img = np.full((240, 420), 125, dtype=np.uint8)
+    img[80:160, 120:300] = 215
+    for x in range(130, 290, 12):
+        img[90:150, x : x + 4] = 25
+
+    labels, _, kept = pdiseg.postprocess_boxes(
+        img, img, [(120, 80, 180, 80)], pdiseg.DetectionConfig()
+    )
+
+    assert labels == []
+    assert kept == []
+
+
+def test_postprocess_rejects_plain_dark_clutter():
+    img = np.full((240, 420), 125, dtype=np.uint8)
+    img[80:160, 120:300] = 25
+
+    labels, _, kept = pdiseg.postprocess_boxes(
+        img, img, [(120, 80, 180, 80)], pdiseg.DetectionConfig()
+    )
+
+    assert labels == []
+    assert kept == []
+
+
+def test_postprocess_keeps_dark_badge_with_bright_glyphs():
+    img = np.full((240, 420), 125, dtype=np.uint8)
+    img[80:160, 120:300] = 25
+    for x in range(132, 288, 12):
+        img[92:148, x : x + 4] = 225
+
+    labels, _, kept = pdiseg.postprocess_boxes(
+        img, img, [(120, 80, 180, 80)], pdiseg.DetectionConfig()
+    )
+
+    assert len(kept) == 1
+    assert len(labels) == 1
+
+
+def test_product_badge_without_brand_context_still_emits_padded_cluster():
+    img = np.full((240, 420), 125, dtype=np.uint8)
+    img[90:150, 140:300] = 25
+    for x in range(152, 288, 12):
+        img[102:138, x : x + 4] = 225
+
+    labels, _, kept = pdiseg.postprocess_boxes(
+        img, img, [(140, 90, 160, 60)], pdiseg.DetectionConfig()
+    )
+
+    assert len(kept) == 1
+    assert len(labels) == 1
+    x, y, w, h = labels[0]
+    assert x <= 140 and y <= 90
+    assert x + w >= 300 and y + h >= 150
+
+
+def test_postprocess_expands_product_anchor_to_adjacent_brand_context():
+    img = np.full((240, 420), 125, dtype=np.uint8)
+    img[60:110, 110:190] = 210
+    for x in range(120, 184, 12):
+        img[70:100, x : x + 3] = 30
+    img[105:165, 150:310] = 25
+    for x in range(162, 300, 12):
+        img[118:152, x : x + 4] = 225
+
+    labels, _, kept = pdiseg.postprocess_boxes(
+        img,
+        img,
+        [(105, 58, 210, 110), (150, 105, 160, 60), (110, 60, 80, 50)],
+        pdiseg.DetectionConfig(),
+    )
+
+    assert len(kept) == 1
+    assert len(labels) == 1
+    x, y, w, h = labels[0]
+    assert x <= 110 and y <= 60
+    assert x + w >= 310 and y + h >= 165
+
+
+def test_postprocess_does_not_merge_unrelated_text_into_cluster():
+    img = np.full((240, 420), 125, dtype=np.uint8)
+    img[30:80, 30:110] = 210
+    for x in range(40, 100, 12):
+        img[40:70, x : x + 3] = 30
+    img[100:160, 220:340] = 25
+    for x in range(232, 328, 12):
+        img[112:148, x : x + 4] = 225
+
+    labels, _, kept = pdiseg.postprocess_boxes(
+        img, img, [(30, 30, 80, 50), (220, 100, 120, 60)], pdiseg.DetectionConfig()
+    )
+
+    assert len(kept) == 1
+    assert len(labels) == 1
+    x, _, w, _ = labels[0]
+    assert x > 120
+    assert x + w >= 340
+
+
+def test_postprocess_defaults_to_one_primary_cluster():
+    img = np.full((240, 520), 125, dtype=np.uint8)
+    for left in (80, 300):
+        img[90:150, left : left + 140] = 25
+        for x in range(left + 12, left + 128, 12):
+            img[102:138, x : x + 4] = 225
+
+    labels, _, kept = pdiseg.postprocess_boxes(
+        img,
+        img,
+        [(80, 90, 140, 60), (300, 90, 140, 60)],
+        pdiseg.DetectionConfig(),
+    )
+
+    assert len(kept) == 1
+    assert len(labels) == 1
+
+
+def test_group_label_fragments_merges_overlapping_words():
+    features = {
+        "bright_on_dark": 0.12,
+        "background_level": 70.0,
+        "edge_density": 0.45,
+        "extent": 0.58,
+        "area_frac": 0.02,
+        "aspect": 1.6,
+        "frame_area": 120_000.0,
+    }
+    fragments = [
+        pdiseg.ScoredCandidate((100, 80, 80, 50), 0.80, features),
+        pdiseg.ScoredCandidate((170, 82, 80, 50), 0.78, features),
+    ]
+
+    grouped = pdiseg.group_label_fragments(
+        fragments, pdiseg.DetectionConfig(), frame_size=(300, 400)
+    )
+
+    assert grouped == [(100, 80, 150, 52)]
+
+
+def test_group_label_fragments_keeps_separate_package_labels():
+    features = {
+        "bright_on_dark": 0.12,
+        "background_level": 70.0,
+        "edge_density": 0.45,
+        "extent": 0.58,
+        "area_frac": 0.02,
+        "aspect": 1.6,
+        "frame_area": 120_000.0,
+    }
+    fragments = [
+        pdiseg.ScoredCandidate((80, 80, 70, 50), 0.80, features),
+        pdiseg.ScoredCandidate((280, 80, 70, 50), 0.78, features),
+    ]
+
+    grouped = pdiseg.group_label_fragments(
+        fragments, pdiseg.DetectionConfig(), frame_size=(300, 400)
+    )
+
+    assert len(grouped) == 2
+
+
 def test_keep_label_clusters_keeps_a_label_sized_box():
     label = (200, 150, 150, 100)
     assert pdiseg.keep_label_clusters([label]) == [label]
@@ -264,8 +455,8 @@ def test_module_entry_point_runs_over_given_dirs(tmp_path):
     dataset = tmp_path / "dataset"
     src = dataset / "Peito_Congelado" / "img001.png"
     src.parent.mkdir(parents=True)
-    frame = _gradient_frame(200, 400)
-    _draw_text_block(frame, 250, 80, 390, 150)
+    frame = _gradient_frame(300, 500)
+    _draw_text_block(frame, 200, 100, 360, 180)
     iio.imwrite(src, frame)
     out = tmp_path / "result"
 

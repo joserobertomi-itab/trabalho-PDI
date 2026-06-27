@@ -12,7 +12,6 @@ from pdiseg.core.imaging import BBox
 from .config import DetectionConfig
 from .masks import (
     build_candidate_masks,
-    dog_text_mask,
     text_density_mask,
 )
 
@@ -73,8 +72,8 @@ def find_candidate_boxes(
     boxes.extend(boxes_from_mask(text_density_mask(text_src, config), min_area, config, frame_area))
     if masks.edge_density is not None:
         boxes.extend(boxes_from_mask(masks.edge_density, min_area, config, frame_area))
-    if config.use_dog_text:
-        boxes.extend(boxes_from_mask(dog_text_mask(text_src, config), min_area, config, frame_area))
+    if masks.dog_text is not None:
+        boxes.extend(boxes_from_mask(masks.dog_text, min_area, config, frame_area))
     return dedupe_boxes(boxes, iou_threshold=0.55)
 
 
