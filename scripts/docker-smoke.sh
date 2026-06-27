@@ -12,12 +12,18 @@ rm -rf "$ROOT/.docker-smoke"
 mkdir -p "$DATA_DIR/SmokeClass" "$OUT_DIR" "$CALIB_DIR"
 chmod -R a+rwx "$ROOT/.docker-smoke"
 
-uv run python - <<'PY'
+docker compose build pipeline
+
+# Generate synthetic frame inside the image (no host uv/python required — CI-friendly).
+docker compose run --rm --no-deps \
+  -v "$DATA_DIR:/data/smoke" \
+  --entrypoint python \
+  pipeline - <<'PY'
 import numpy as np
 import imageio.v3 as iio
 from pathlib import Path
 
-out = Path(".docker-smoke/dataset/SmokeClass")
+out = Path("/data/smoke/SmokeClass")
 out.mkdir(parents=True, exist_ok=True)
 h, w = 300, 500
 frame = np.tile(np.linspace(0, 255, w).astype(np.uint8), (h, 1))
@@ -30,8 +36,6 @@ PY
 export DATA="$DATA_DIR"
 export OUT="$OUT_DIR"
 export CALIB="$CALIB_DIR"
-
-docker compose build pipeline
 
 docker compose up --no-build pipeline
 test -f "$OUT_DIR/SmokeClass/frame_segmented_1.png"
