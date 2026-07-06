@@ -69,6 +69,17 @@ from pdiseg.io.dataset import (
     list_classes,
     load_image,
 )
+from pdiseg.recognition.classify import (
+    UNKNOWN,
+    Prediction,
+    Template,
+    classify_features,
+    classify_segment,
+    load_templates,
+)
+from pdiseg.recognition.config import RecognitionConfig
+from pdiseg.recognition.features import Features, extract_descriptors, extract_features
+from pdiseg.recognition.matching import match_fraction
 from pdiseg.runtime.pipeline import (
     ClassReport,
     DatasetReport,
@@ -82,6 +93,7 @@ from pdiseg.runtime.pipeline import (
 
 __all__ = [
     "FPS_OVERLAY_REGION",
+    "UNKNOWN",
     "BBox",
     "ClassReport",
     "ClassStats",
@@ -91,15 +103,21 @@ __all__ = [
     "DebugSampleReport",
     "DetectionConfig",
     "DetectionResult",
+    "Features",
     "FrameDebugSnapshot",
     "FrameInspection",
+    "Prediction",
+    "RecognitionConfig",
     "RunSummary",
     "ScoredCandidate",
+    "Template",
     "analyze_frame",
     "assert_pipeline_schema",
     "build_candidate_masks",
     "build_sample_views",
     "calibrate",
+    "classify_features",
+    "classify_segment",
     "count_images_per_class",
     "crop",
     "crop_and_save",
@@ -110,6 +128,8 @@ __all__ = [
     "draw_boxes",
     "dump_preprocessed",
     "expand_to_label_cluster",
+    "extract_descriptors",
+    "extract_features",
     "extract_product_anchor",
     "feature_summary",
     "find_candidate_boxes",
@@ -121,6 +141,8 @@ __all__ = [
     "list_bundle_artifacts",
     "list_classes",
     "load_image",
+    "load_templates",
+    "match_fraction",
     "output_path",
     "plot_all_crops",
     "plot_all_detection_stage",

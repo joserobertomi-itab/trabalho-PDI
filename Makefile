@@ -29,6 +29,7 @@ COMPOSE_RUN = $(COMPOSE) $(if $(filter 1,$(USE_DOCKER_GPU)),-f docker-compose.ym
 .DEFAULT_GOAL := help
 
 .PHONY: help setup sync lock test lint format typecheck check ci run calibrate review debug kernel \
+	recognize templates \
 	docker-build docker-up docker-calibrate docker-review docker-export docker-smoke \
 	prod-up prod-calibrate prod-review \
 	agent-check clean
@@ -56,7 +57,7 @@ lock: ## Refresh uv.lock after pyproject.toml changes
 	$(UV) lock
 
 test: ## Run pytest with coverage
-	$(PY) pytest --cov=pdiseg --cov-report=term-missing -q
+	$(PY) pytest --cov=src/pdiseg --cov-report=term-missing -q
 
 lint: ## Ruff check
 	$(PY) ruff check src tests
@@ -77,6 +78,12 @@ run: ## Segment DATA → OUT
 
 calibrate: ## Write calibration/ (overlays, boxes.json, stats.csv)
 	$(PY) pdiseg-calibrate $(DATA) $(CALIB) --per-class-limit $(LIMIT) $(if $(MAX_IMAGES),--limit $(MAX_IMAGES),) --offset $(OFFSET) --progress-every $(PROGRESS_EVERY) --workers $(WORKERS)
+
+templates: ## Bootstrap templates/ (one crop per class via T1 detector)
+	$(PY) python scripts/build-templates.py $(DATA) templates
+
+recognize: ## Recognize products in OUT segments against templates/ (T2)
+	$(PY) pdiseg-recognize $(OUT) templates --sweep-csv $(CALIB)/recognition_sweep.csv --workers $(WORKERS) --progress-every $(PROGRESS_EVERY)
 
 review: ## Open viewer at http://127.0.0.1:$(PORT)/
 	$(PY) pdiseg-review --dataset $(DATA) --calibration $(CALIB) --result $(OUT) --port $(PORT)

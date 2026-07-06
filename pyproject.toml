@@ -52,6 +52,7 @@ gpu = [
 pdiseg = "pdiseg.cli.segment:main"
 pdiseg-calibrate = "pdiseg.cli.calibrate:main"
 pdiseg-review = "pdiseg.cli.review:main"
+pdiseg-recognize = "pdiseg.cli.recognize:main"
 pdiseg-debug = "pdiseg.cli.debug:main"
 
 [project.urls]
