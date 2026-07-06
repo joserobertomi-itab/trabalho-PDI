@@ -27,3 +27,4 @@ build/
 !.env.example
 /debug_result/
 /food-segmentation-9718bf11870bb6440da5781691463535d49fa034/
+tmp/
