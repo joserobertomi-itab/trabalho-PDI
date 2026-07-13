@@ -1,8 +1,9 @@
-# Poultry packaging segmentation (PDI — IFG, Practical Assignment 1)
+# Poultry packaging segmentation & recognition (PDI — IFG)
 
-Locates and crops the label region on dataset images. Segmentation only — no classification or OCR.
+- **T1 — segmentation:** locates and crops the label region on dataset images (no classification or OCR).
+- **T2 — recognition:** labels each T1 crop with its product class by local-feature matching against per-class templates (see [§11](#11-product-recognition-t2)).
 
-Assignment brief: [requirements.md](./requirements.md) · Glossary: [CONTEXT.md](./CONTEXT.md)
+Assignment briefs: [requirements.md](./requirements.md) (T1) · [enunciadot2.pdf](./enunciadot2.pdf) (T2) · Glossary: [CONTEXT.md](./CONTEXT.md) · Changelog: [UPDATES.md](./UPDATES.md)
 
 ---
 
@@ -232,6 +233,9 @@ Run `make` or `make help` to list targets.
 |---------|-------------|
 | `make run` | Segment → `result/` |
 | `make calibrate` | Write `calibration/` |
+| `make templates` | Bootstrap `templates/` from T1 (T2) |
+| `make recognize` | Recognize products in `result/` segments (T2) |
+| `make report` | Recognize + rebuild T2 report PDFs |
 | `make review` | Web viewer |
 | `make debug` | Full pipeline on 1 image/class → `debug_result/` |
 | `make docker-up` | Pipeline in Docker |
@@ -256,6 +260,7 @@ uv run pdiseg [INPUT] [OUTPUT]
 uv run pdiseg-calibrate [INPUT] [OUTPUT_DIR] [--per-class-limit N]
 uv run pdiseg-review --dataset DATA --calibration CALIB --result OUT [--port 8765]
 uv run pdiseg-debug [INPUT] [OUTPUT] [--bundle-root DIR] [--per-class N]
+uv run pdiseg-recognize [SEGMENTS_ROOT] [TEMPLATES_ROOT] [--min-match-frac F] [--sweep-csv PATH]
 ```
 
 ---
@@ -308,7 +313,39 @@ No spec-driven development — issues + `CONTEXT.md` + ADRs.
 
 ---
 
-## 11. Delivery
+## 11. Product recognition (T2)
+
+Classifies each T1 segment crop by matching **local descriptors** (skimage SIFT, ORB
+optional) against one committed template per class. No ML — the decision is a single
+knob: the fraction of template keypoints that find a geometrically-consistent match in
+the segment. Below that threshold the crop is `unknown` (false positives cost more than
+misses). Design rationale: [docs/adr/0006-local-feature-recognition.md](./docs/adr/0006-local-feature-recognition.md).
+
+```sh
+make templates      # 1. bootstrap templates/<Class>.png from the T1 detector (or hand-crop)
+make run            # 2. produce T1 segments under result/
+make recognize      # 3. write result/recognition.csv + calibration/recognition_sweep.csv
+make report         # 4. (optional) rebuild docs/report/*.pdf
+```
+
+- **Templates** live in `templates/<Class>.png`, one per class, committed. Bootstrapped
+  from the T1 label crop but replaceable by better manual crops at any time — the
+  recognizer only reads the directory.
+- **Pipeline:** `features.py` (keypoints/descriptors) → `matching.py` (Lowe ratio +
+  cross-check + RANSAC affine verification) → `classify.py` / `batch.py` (per-segment
+  scores, image-level max aggregation, `unknown` gate, threshold sweep).
+- **Calibration:** `--sweep-csv` re-applies every `min_match_frac` over cached scores and
+  reports accuracy, unknown count, and false-positive rate per threshold — pick the knob
+  from that curve.
+- **Report PDFs** (Brazilian Portuguese, graded deliverable):
+  [docs/report/t2_report.pdf](./docs/report/t2_report.pdf) (full) and
+  [t2_simplified.pdf](./docs/report/t2_simplified.pdf) (templates · parameters · results).
+
+Details of everything added for T2: [UPDATES.md](./UPDATES.md).
+
+---
+
+## 12. Delivery
 
 Colab on Moodle **or** Docker Compose.
 
