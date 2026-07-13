@@ -2,7 +2,7 @@
 
 Report text is Brazilian Portuguese on purpose (graded course deliverable).
 
-Inputs : templates/, result/recognition.csv, calibration/recognition_sweep.csv
+Inputs : templates/, result/recognition.csv
 Output : docs/report/t2_simplified.pdf
 
 Usage: uv run python scripts/build-t2-simplified.py
@@ -82,7 +82,7 @@ def _table_page(pdf: PdfPages, title: str, headers: list[str], rows: list[list[s
     plt.close(fig)
 
 
-def _params_page(pdf: PdfPages, cfg: RecognitionConfig, sweep_csv: Path) -> None:
+def _params_page(pdf: PdfPages, cfg: RecognitionConfig) -> None:
     body = (
         f"Descritor                : {cfg.descriptor.upper()} (scikit-image)\n"
         f"Limiar de decisao        : min_match_frac = {cfg.min_match_frac}\n"
@@ -97,23 +97,6 @@ def _params_page(pdf: PdfPages, cfg: RecognitionConfig, sweep_csv: Path) -> None
     fig = plt.figure(figsize=A4)
     fig.text(0.08, 0.92, "Parametros do Algoritmo", fontsize=14, fontweight="bold", va="top")
     fig.text(0.08, 0.87, body, fontsize=10, va="top", family="monospace", linespacing=1.6)
-
-    # Historico da calibracao do limiar (opcional no enunciado).
-    if sweep_csv.exists():
-        with sweep_csv.open() as handle:
-            sweep = list(csv.DictReader(handle))
-        t = [float(r["min_match_frac"]) for r in sweep]
-        ax = fig.add_axes((0.1, 0.12, 0.8, 0.42))
-        ax.plot(t, [float(r["accuracy"]) for r in sweep], label="acuracia", lw=2)
-        ax.plot(t, [float(r["false_positive_rate"]) for r in sweep],
-                label="taxa de falsos positivos", lw=2)
-        ax.axvline(cfg.min_match_frac, color="k", lw=1, ls=":",
-                   label=f"limiar escolhido = {cfg.min_match_frac}")
-        ax.set_xlabel("min_match_frac")
-        ax.set_ylabel("proporcao")
-        ax.set_title("Historico da calibracao do limiar")
-        ax.legend()
-        ax.grid(alpha=0.3)
     pdf.savefig(fig)
     plt.close(fig)
 
@@ -142,7 +125,6 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--templates", default="templates")
     parser.add_argument("--predictions", default="result/recognition.csv")
-    parser.add_argument("--sweep", default="calibration/recognition_sweep.csv")
     parser.add_argument("--out", default="docs/report/t2_simplified.pdf")
     args = parser.parse_args(argv)
 
@@ -161,7 +143,7 @@ def main(argv: list[str] | None = None) -> None:
             widths=[0.28, 0.30, 0.42],
             wrap_cols={1: 38, 2: 52},
         )
-        _params_page(pdf, cfg, Path(args.sweep))
+        _params_page(pdf, cfg)
         _table_page(
             pdf,
             "Resultado",

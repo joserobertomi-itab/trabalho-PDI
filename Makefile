@@ -85,6 +85,10 @@ templates: ## Bootstrap templates/ (one crop per class via T1 detector)
 recognize: ## Recognize products in OUT segments against templates/ (T2)
 	$(PY) pdiseg-recognize $(OUT) templates --sweep-csv $(CALIB)/recognition_sweep.csv --workers $(WORKERS) --progress-every $(PROGRESS_EVERY)
 
+report: recognize ## Recognize then rebuild T2 report PDFs (docs/report/)
+	$(PY) python scripts/build-t2-report.py
+	$(PY) python scripts/build-t2-simplified.py
+
 review: ## Open viewer at http://127.0.0.1:$(PORT)/
 	$(PY) pdiseg-review --dataset $(DATA) --calibration $(CALIB) --result $(OUT) --port $(PORT)
 
