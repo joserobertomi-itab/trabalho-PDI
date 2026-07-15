@@ -197,7 +197,12 @@ services:
         && nice -n "$${PDISEG_NICE:-10}" python /app/scripts/build-t2-simplified.py \
              --templates /data/templates \
              --predictions /data/output/recognition.csv \
-             --out /data/report/t2_simplified.pdf
+             --out /data/report/t2_simplified.pdf \
+        && nice -n "$${PDISEG_NICE:-10}" python /app/scripts/build-t2-deliverable.py \
+             --templates /data/templates \
+             --predictions /data/output/recognition.csv \
+             --sweep /data/calibration/recognition_sweep.csv \
+             --out /data/report/Relatorio_T2_SIFT.pdf
     volumes:
       - ${OUT:-./result}:/data/output:ro
       - ${TEMPLATES:-./templates}:/data/templates:ro

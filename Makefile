@@ -95,6 +95,7 @@ report: recognize ## Recognize then rebuild T2 report PDFs (docs/report/)
 	mkdir -p $(REPORT)
 	$(PY) python scripts/build-t2-report.py --predictions $(OUT)/recognition.csv --sweep $(CALIB)/recognition_sweep.csv --out $(REPORT)/t2_report.pdf
 	$(PY) python scripts/build-t2-simplified.py --predictions $(OUT)/recognition.csv --out $(REPORT)/t2_simplified.pdf
+	$(PY) python scripts/build-t2-deliverable.py --predictions $(OUT)/recognition.csv --sweep $(CALIB)/recognition_sweep.csv --out $(REPORT)/Relatorio_T2_SIFT.pdf
 
 review: ## Open viewer at http://127.0.0.1:$(PORT)/
 	$(PY) pdiseg-review --dataset $(DATA) --calibration $(CALIB) --result $(OUT) --port $(PORT)

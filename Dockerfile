@@ -46,7 +46,7 @@ COPY --from=builder --chown=pdiseg:pdiseg /app/.venv /app/.venv
 COPY --chown=pdiseg:pdiseg src/pdiseg/ src/pdiseg/
 COPY --chown=pdiseg:pdiseg pyproject.toml README.md CONTEXT.md ./
 COPY --chown=pdiseg:pdiseg templates/ templates/
-COPY --chown=pdiseg:pdiseg scripts/build-templates.py scripts/build-t2-report.py scripts/build-t2-simplified.py scripts/
+COPY --chown=pdiseg:pdiseg scripts/build-templates.py scripts/build-t2-report.py scripts/build-t2-simplified.py scripts/build-t2-deliverable.py scripts/
 COPY scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh \

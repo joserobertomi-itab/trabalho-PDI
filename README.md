@@ -329,8 +329,10 @@ make report         # 4. (optional) rebuild docs/report/*.pdf
   reports accuracy, unknown count, and false-positive rate per threshold — pick the knob
   from that curve.
 - **Report PDFs** (Brazilian Portuguese, graded deliverable):
-  [docs/report/t2_report.pdf](./docs/report/t2_report.pdf) (full) and
-  [t2_simplified.pdf](./docs/report/t2_simplified.pdf) (templates · parameters · results).
+  [docs/report/t2_report.pdf](./docs/report/t2_report.pdf) (full),
+  [t2_simplified.pdf](./docs/report/t2_simplified.pdf) (templates · parameters · results), and
+  [Relatorio_T2_SIFT.pdf](./docs/report/Relatorio_T2_SIFT.pdf) (graded deliverable with
+  cover, intro, calibration history, and conclusion — authors José Roberto & Felipe Versiane).
 
 Details of everything added for T2: [UPDATES.md](./UPDATES.md).
 
