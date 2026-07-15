@@ -25,7 +25,9 @@ make docker-calibrate
 make docker-review PORT=8765
 ```
 
-Compose: `docker compose --profile tools run --rm calibrate`
+Compose: `docker compose --profile tools run --rm --no-deps calibrate`
+
+Review UI: `docker compose --profile review up review` (does not re-run detection).
 
 ## Review contract
 

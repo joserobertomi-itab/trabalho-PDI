@@ -7,9 +7,11 @@ cd "$ROOT"
 DATA_DIR="$ROOT/.docker-smoke/dataset"
 OUT_DIR="$ROOT/.docker-smoke/result"
 CALIB_DIR="$ROOT/.docker-smoke/calibration"
+REPORT_DIR="$ROOT/.docker-smoke/report"
+TEMPLATES_DIR="$ROOT/templates"
 
 rm -rf "$ROOT/.docker-smoke"
-mkdir -p "$DATA_DIR/SmokeClass" "$OUT_DIR" "$CALIB_DIR"
+mkdir -p "$DATA_DIR/SmokeClass" "$OUT_DIR" "$CALIB_DIR" "$REPORT_DIR"
 chmod -R a+rwx "$ROOT/.docker-smoke"
 
 docker compose build pipeline
@@ -36,15 +38,21 @@ PY
 export DATA="$DATA_DIR"
 export OUT="$OUT_DIR"
 export CALIB="$CALIB_DIR"
+export REPORT="$REPORT_DIR"
+export TEMPLATES="$TEMPLATES_DIR"
 
 docker compose up --no-build pipeline
 test -f "$OUT_DIR/SmokeClass/frame_segmented_1.png"
 
-docker compose --profile tools run --rm calibrate
+docker compose --profile tools run --rm --no-deps calibrate
 test -f "$CALIB_DIR/boxes.json"
 test -f "$CALIB_DIR/stats.csv"
 
-docker compose --profile tools up -d --no-build review
+# CLI smoke for T2 packaging (no full recognize — templates may not match SmokeClass).
+docker compose run --rm --no-deps --entrypoint pdiseg-recognize pipeline --help >/dev/null
+docker compose run --rm --no-deps --entrypoint python pipeline /app/scripts/build-t2-report.py --help >/dev/null
+
+docker compose --profile review up -d --no-build review
 for _ in $(seq 1 30); do
   if curl -sf "http://127.0.0.1:${PORT:-8765}/api/classes" >/dev/null; then
     break
@@ -52,6 +60,6 @@ for _ in $(seq 1 30); do
   sleep 1
 done
 curl -sf "http://127.0.0.1:${PORT:-8765}/api/classes" | grep -q SmokeClass
-docker compose --profile tools stop review
+docker compose --profile review stop review
 
 echo "docker smoke ok"

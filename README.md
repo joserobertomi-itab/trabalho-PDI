@@ -98,10 +98,13 @@ After the CI publishes the image, a professor can run without building locally a
 without a `.env` file:
 
 ```sh
-mkdir -p result calibration
+mkdir -p result calibration docs/report
 docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml up pipeline
-docker compose -f docker-compose.prod.yml --profile tools run --rm calibrate
+docker compose -f docker-compose.prod.yml --profile tools run --rm --no-deps calibrate
+docker compose -f docker-compose.prod.yml --profile tools run --rm --no-deps recognize
+docker compose -f docker-compose.prod.yml --profile tools run --rm --no-deps report
+docker compose -f docker-compose.prod.yml --profile review up review
 ```
 
 The production Compose uses:
@@ -110,84 +113,66 @@ The production Compose uses:
 ghcr.io/joserobertomi-itab/trabalho-pdi:latest
 ```
 
-Put the dataset in `data/Train_and_Validation/`. Outputs are written to `result/` and
-`calibration/`.
+Put the dataset in `data/Train_and_Validation/`. Outputs go to `result/`,
+`calibration/`, and (for T2 PDFs) `docs/report/`.
 
 The GitHub Actions CI publishes this image on pushes to `main`, version tags like
 `v1.0.0`, and manual workflow runs. After the first package is created, open the
 package settings in GitHub Packages and set its visibility to **Public** so it can be
 pulled without login.
 
-### Local build
+### Local build (graded path = issue #7)
 
 ```sh
-mkdir -p result calibration
+mkdir -p result calibration docs/report
 cp .env.example .env
 make docker-up
 ```
 
-This runs all images with Docker settings from `.env`: 6 workers, a 6-CPU cap
-(50% of a 12-logical-CPU notebook), and automatic GPU selection when NVIDIA Docker is
-available.
+`docker compose up` / `make docker-up` starts **only** the T1 pipeline.
+Assignment-style folders:
 
-Run calibration in Docker:
+```sh
+make docker-up DATA=dataset OUT=resultado
+# equivalent:
+DATA=./dataset OUT=./resultado docker compose up --build pipeline
+```
+
+Optional tools:
 
 ```sh
 make docker-calibrate
+make docker-recognize
+make docker-report
+make docker-review          # http://127.0.0.1:8765/ — issue #8, does not re-run detection
+make docker-tools           # ordered: pipeline → calibrate → recognize → report
 ```
 
-Recommended full Docker flow:
-
-```sh
-make docker-up
-make docker-calibrate
-```
-
-Do not run `docker-up` and `docker-calibrate` at the same time on a notebook.
+Do not run heavy Docker targets in parallel on a notebook.
 
 If the notebook is still too busy, lower the CPU cap:
 
 ```sh
 make docker-up DOCKER_CPUS=4.0 WORKERS=4
-make docker-calibrate DOCKER_CPUS=4.0 WORKERS=4
 ```
 
 Force CPU even on a machine with NVIDIA:
 
 ```sh
 make docker-up DOCKER_GPU=off PDISEG_BACKEND=cpu
-make docker-calibrate DOCKER_GPU=off PDISEG_BACKEND=cpu
 ```
 
-If you want to run in chunks:
+Chunks:
 
 ```sh
 make docker-up MAX_IMAGES=100 OFFSET=0
 make docker-up MAX_IMAGES=100 OFFSET=100
-make docker-up MAX_IMAGES=100 OFFSET=200
-```
-
-Assignment-style dataset folder name:
-
-```sh
-make docker-up DATA=dataset OUT=result
-```
-
-Direct Compose equivalent:
-
-```sh
-DATA=./data/Train_and_Validation OUT=./result THREADS=1 WORKERS=6 PDISEG_BACKEND=auto DOCKER_CPUS=6.0 DOCKER_MEMORY=4g DOCKER_NICE=10 PROGRESS_EVERY=25 \
-  docker compose up --build pipeline
-
-DATA=./data/Train_and_Validation CALIB=./calibration LIMIT=9999 THREADS=1 WORKERS=6 PDISEG_BACKEND=auto DOCKER_CPUS=6.0 DOCKER_MEMORY=4g DOCKER_NICE=10 PROGRESS_EVERY=25 \
-  docker compose --profile tools run --rm calibrate
 ```
 
 Direct Compose with GPU override:
 
 ```sh
 docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build pipeline
-docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile tools run --rm calibrate
 ```
 
 Details: [docs/docker-compose.md](./docs/docker-compose.md).
@@ -214,6 +199,8 @@ Run `make` or `make help` to list targets.
 | `DATA` | `data/Train_and_Validation` | Input folder |
 | `OUT` | `result` | Segmentation output |
 | `CALIB` | `calibration` | Calibration output |
+| `TEMPLATES` | `templates` | T2 template images |
+| `REPORT` | `docs/report` | T2 PDF report output |
 | `LIMIT` | `9999` | Per-class calibration cap; high value means all images |
 | `MAX_IMAGES` | empty | Optional max images per run |
 | `OFFSET` | `0` | Skip N sorted images before running |
@@ -238,11 +225,15 @@ Run `make` or `make help` to list targets.
 | `make report` | Recognize + rebuild T2 report PDFs |
 | `make review` | Web viewer |
 | `make debug` | Full pipeline on 1 image/class → `debug_result/` |
-| `make docker-up` | Pipeline in Docker |
+| `make docker-up` | T1 pipeline in Docker (graded) |
 | `make docker-calibrate` | Calibrate in Docker |
-| `make docker-review` | Review in Docker |
+| `make docker-templates` | Bootstrap templates in Docker |
+| `make docker-recognize` | T2 recognize in Docker |
+| `make docker-report` | T2 PDF reports in Docker |
+| `make docker-review` | Review viewer in Docker (profile `review`) |
+| `make docker-tools` | Ordered T1→T2 tools chain |
 | `make prod-up` | Pipeline from published GHCR image |
-| `make prod-calibrate` | Calibrate from published GHCR image |
+| `make prod-calibrate` / `prod-recognize` / `prod-report` | Tools from GHCR |
 | `make prod-review` | Review from published GHCR image |
 | `make docker-export` | Copy named volume → `./result` |
 | `make test` | pytest |
@@ -347,6 +338,10 @@ Details of everything added for T2: [UPDATES.md](./UPDATES.md).
 
 ## 12. Delivery
 
-Colab on Moodle **or** Docker Compose.
+**Delivery vehicle (issue #7): Docker Compose** — `make docker-up` / plain
+`docker compose up` segments `dataset/` → `resultado/` (or `DATA`/`OUT` overrides).
+Colab remains optional if the instructor prefers a Moodle notebook link
+(`alessandro.rodrigues@ifg.edu.br`).
 
-Share the Colab link with: `alessandro.rodrigues@ifg.edu.br`
+**Review viewer (issue #8):** `make review` or `make docker-review` — read-only UI
+comparing source, overlays, and crops; never runs detection.

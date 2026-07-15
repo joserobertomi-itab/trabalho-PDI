@@ -31,7 +31,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 FROM python:3.12-slim-bookworm AS runtime
 
 LABEL org.opencontainers.image.title="pdiseg" \
-      org.opencontainers.image.description="Poultry packaging name-label segmentation (classical PDI)" \
+      org.opencontainers.image.description="Poultry packaging name-label segmentation and recognition (classical PDI)" \
       org.opencontainers.image.source="https://github.com/joserobertomi-itab/trabalho-PDI"
 
 RUN apt-get update \
@@ -45,9 +45,13 @@ WORKDIR /app
 COPY --from=builder --chown=pdiseg:pdiseg /app/.venv /app/.venv
 COPY --chown=pdiseg:pdiseg src/pdiseg/ src/pdiseg/
 COPY --chown=pdiseg:pdiseg pyproject.toml README.md CONTEXT.md ./
+COPY --chown=pdiseg:pdiseg templates/ templates/
+COPY --chown=pdiseg:pdiseg scripts/build-templates.py scripts/build-t2-report.py scripts/build-t2-simplified.py scripts/
 COPY scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh \
+    && mkdir -p /data/input /data/output /data/calibration /data/templates /data/report \
+    && chown -R pdiseg:pdiseg /data
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \

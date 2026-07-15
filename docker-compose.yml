@@ -1,5 +1,28 @@
 name: pdiseg
 
+# Dev / local Compose — build image from this repo.
+#
+# Graded segmentation only (issues #7 / #8 base delivery):
+#   mkdir -p result calibration docs/report
+#   docker compose up --build pipeline
+#   DATA=./dataset OUT=./resultado docker compose up --build pipeline
+#
+# Full tools job chain (ordered, never in parallel):
+#   pipeline → calibrate → recognize → report
+#   docker compose --profile tools up --build
+#
+# Review viewer (issue #8 — read-only web UI, does not run detection):
+#   docker compose --profile review up --build review
+#   open http://localhost:8765/
+#
+# One-shot tools (do not re-run pipeline):
+#   docker compose --profile tools run --rm --no-deps calibrate
+#   docker compose --profile tools run --rm --no-deps recognize
+#   docker compose --profile tools run --rm --no-deps report
+#   docker compose --profile bootstrap run --rm templates
+#
+# Make: make docker-up | docker-calibrate | docker-recognize | docker-report | docker-review
+
 x-pdiseg-env: &pdiseg-env
   OMP_NUM_THREADS: "${THREADS:-1}"
   OPENBLAS_NUM_THREADS: "${THREADS:-1}"
@@ -15,6 +38,7 @@ x-pdiseg-env: &pdiseg-env
   OFFSET: "${OFFSET:-0}"
   PROGRESS_EVERY: "${PROGRESS_EVERY:-25}"
   PDISEG_NICE: "${DOCKER_NICE:-10}"
+  MPLCONFIGDIR: "/tmp/matplotlib"
 
 x-pdiseg-limits: &pdiseg-limits
   cpus: "${DOCKER_CPUS:-2.0}"
@@ -32,6 +56,7 @@ services:
       context: .
       dockerfile: Dockerfile
     image: pdiseg:latest
+    restart: "no"
     command:
       - sh
       - -c
@@ -60,6 +85,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    restart: "no"
+    depends_on:
+      pipeline:
+        condition: service_completed_successfully
     command:
       - sh
       - -c
@@ -82,9 +111,110 @@ services:
     tmpfs:
       - /tmp:size=64M,mode=1777
 
-  review:
+  templates:
+    <<: *pdiseg-limits
+    profiles: ["bootstrap"]
+    image: pdiseg:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: "no"
+    command:
+      - sh
+      - -c
+      - |
+        exec nice -n "$${PDISEG_NICE:-10}" python /app/scripts/build-templates.py /data/input /data/templates
+    volumes:
+      - ${DATA:-./data/Train_and_Validation}:/data/input:ro
+      - ${TEMPLATES:-./templates}:/data/templates
+    environment:
+      <<: *pdiseg-env
+      PDISEG_PREPARE_MOUNTS: "1"
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M,mode=1777
+
+  recognize:
     <<: *pdiseg-limits
     profiles: ["tools"]
+    image: pdiseg:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: "no"
+    depends_on:
+      calibrate:
+        condition: service_completed_successfully
+    command:
+      - sh
+      - -c
+      - |
+        set -- pdiseg-recognize /data/output /data/templates \
+          --csv /data/output/recognition.csv \
+          --sweep-csv /data/calibration/recognition_sweep.csv \
+          --progress-every "$${PROGRESS_EVERY:-25}" \
+          --workers "$${PDISEG_WORKERS:-1}"
+        if [ -n "$${MAX_IMAGES:-}" ]; then
+          set -- "$$@" --limit "$${MAX_IMAGES}"
+        fi
+        exec nice -n "$${PDISEG_NICE:-10}" "$$@"
+    volumes:
+      - ${OUT:-./result}:/data/output
+      - ${TEMPLATES:-./templates}:/data/templates:ro
+      - ${CALIB:-./calibration}:/data/calibration
+    environment:
+      <<: *pdiseg-env
+      PDISEG_PREPARE_MOUNTS: "1"
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M,mode=1777
+
+  report:
+    <<: *pdiseg-limits
+    profiles: ["tools"]
+    image: pdiseg:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: "no"
+    depends_on:
+      recognize:
+        condition: service_completed_successfully
+    command:
+      - sh
+      - -c
+      - |
+        mkdir -p /data/report \
+        && nice -n "$${PDISEG_NICE:-10}" python /app/scripts/build-t2-report.py \
+             --templates /data/templates \
+             --predictions /data/output/recognition.csv \
+             --sweep /data/calibration/recognition_sweep.csv \
+             --out /data/report/t2_report.pdf \
+        && nice -n "$${PDISEG_NICE:-10}" python /app/scripts/build-t2-simplified.py \
+             --templates /data/templates \
+             --predictions /data/output/recognition.csv \
+             --out /data/report/t2_simplified.pdf
+    volumes:
+      - ${OUT:-./result}:/data/output:ro
+      - ${TEMPLATES:-./templates}:/data/templates:ro
+      - ${CALIB:-./calibration}:/data/calibration:ro
+      - ${REPORT:-./docs/report}:/data/report
+    environment:
+      <<: *pdiseg-env
+      PDISEG_PREPARE_MOUNTS: "1"
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=128M,mode=1777
+
+  review:
+    <<: *pdiseg-limits
+    profiles: ["review"]
     image: pdiseg:latest
     build:
       context: .

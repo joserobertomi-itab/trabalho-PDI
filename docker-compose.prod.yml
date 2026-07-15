@@ -1,35 +1,38 @@
 # pdiseg — production delivery (published GHCR image, no local build)
 #
 # Prerequisites (run once):
-#   mkdir -p result calibration
+#   mkdir -p result calibration docs/report
 #   dataset must exist at ./data/Train_and_Validation/
+#   (or set DATA/OUT via env if preferred)
 #
 # Step 1 — segment full dataset (THIS is the only service started by plain `up`):
 #   docker compose -f docker-compose.prod.yml pull
 #   docker compose -f docker-compose.prod.yml up pipeline
 #   # writes crops to ./result/
 #
-# Step 2 — calibration overlays (run only AFTER pipeline has finished):
-#   docker compose -f docker-compose.prod.yml --profile tools run --rm calibrate
-#   # writes ./calibration/boxes.json, stats.csv, overlays
+# Step 2 — calibration overlays (AFTER pipeline):
+#   docker compose -f docker-compose.prod.yml --profile tools run --rm --no-deps calibrate
 #
-# Step 3 — review viewer (run only AFTER calibrate has finished):
-#   docker compose -f docker-compose.prod.yml --profile tools up review
+# Step 3 — T2 recognition (AFTER crops exist):
+#   docker compose -f docker-compose.prod.yml --profile tools run --rm --no-deps recognize
+#
+# Step 4 — T2 PDF reports (AFTER recognition.csv):
+#   docker compose -f docker-compose.prod.yml --profile tools run --rm --no-deps report
+#
+# Step 5 — review viewer (AFTER calibrate; optional):
+#   docker compose -f docker-compose.prod.yml --profile review up review
 #   # open http://localhost:8765/
 #
-# All three steps in order (pipeline → calibrate → review, never in parallel):
+# Full tools chain in order (pipeline → calibrate → recognize → report):
 #   docker compose -f docker-compose.prod.yml --profile tools up
 #
-# Chunked run (optional):
-#   PDISEG_WORKERS=4 docker compose -f docker-compose.prod.yml up pipeline
-#   MAX_IMAGES=100 OFFSET=0 docker compose -f docker-compose.prod.yml up pipeline
-#   MAX_IMAGES=100 OFFSET=100 docker compose -f docker-compose.prod.yml up pipeline
+# Assignment layout alias:
+#   DATA=./dataset OUT=./resultado docker compose -f docker-compose.prod.yml up pipeline
 #
 # Notes:
-# - `calibrate` and `review` use profile "tools" — they are NOT started by
-#   `docker compose -f docker-compose.prod.yml up` alone (only `pipeline` runs).
-# - When using `--profile tools up`, `depends_on` waits for each step to finish
-#   before starting the next (no overlap).
+# - `calibrate` / `recognize` / `report` use profile "tools"
+# - `review` uses profile "review" (standalone read-only UI — issue #8)
+# - Plain `up` starts ONLY `pipeline` (issue #7 graded path)
 # - Image: ghcr.io/joserobertomi-itab/trabalho-pdi:latest
 
 name: pdiseg-prod
@@ -49,6 +52,7 @@ x-pdiseg-env: &pdiseg-env
   OFFSET: "0"
   PROGRESS_EVERY: "25"
   PDISEG_NICE: "10"
+  MPLCONFIGDIR: "/tmp/matplotlib"
 
 x-pdiseg-limits: &pdiseg-limits
   cpus: "6.0"
@@ -76,8 +80,8 @@ services:
           --progress-every "$${PROGRESS_EVERY}" \
           --workers "$${PDISEG_WORKERS}"
     volumes:
-      - ./data/Train_and_Validation:/data/input:ro
-      - ./result:/data/output
+      - ${DATA:-./data/Train_and_Validation}:/data/input:ro
+      - ${OUT:-./result}:/data/output
     environment:
       <<: *pdiseg-env
       PDISEG_PREPARE_MOUNTS: "1"
@@ -107,8 +111,8 @@ services:
           --progress-every "$${PROGRESS_EVERY}" \
           --workers "$${PDISEG_WORKERS}"
     volumes:
-      - ./data/Train_and_Validation:/data/input:ro
-      - ./calibration:/data/calibration
+      - ${DATA:-./data/Train_and_Validation}:/data/input:ro
+      - ${CALIB:-./calibration}:/data/calibration
     environment:
       <<: *pdiseg-env
       LIMIT: "9999"
@@ -119,12 +123,98 @@ services:
     tmpfs:
       - /tmp:size=64M,mode=1777
 
-  review:
+  templates:
+    <<: [*pdiseg-image, *pdiseg-limits]
+    profiles: ["bootstrap"]
+    restart: "no"
+    command:
+      - sh
+      - -c
+      - |
+        exec nice -n "$${PDISEG_NICE}" python /app/scripts/build-templates.py /data/input /data/templates
+    volumes:
+      - ${DATA:-./data/Train_and_Validation}:/data/input:ro
+      - ${TEMPLATES:-./templates}:/data/templates
+    environment:
+      <<: *pdiseg-env
+      PDISEG_PREPARE_MOUNTS: "1"
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M,mode=1777
+
+  recognize:
     <<: [*pdiseg-image, *pdiseg-limits]
     profiles: ["tools"]
+    restart: "no"
     depends_on:
       calibrate:
         condition: service_completed_successfully
+    command:
+      - sh
+      - -c
+      - |
+        set -- pdiseg-recognize /data/output /data/templates \
+          --csv /data/output/recognition.csv \
+          --sweep-csv /data/calibration/recognition_sweep.csv \
+          --progress-every "$${PROGRESS_EVERY}" \
+          --workers "$${PDISEG_WORKERS}"
+        if [ -n "$${MAX_IMAGES}" ]; then
+          set -- "$$@" --limit "$${MAX_IMAGES}"
+        fi
+        exec nice -n "$${PDISEG_NICE}" "$$@"
+    volumes:
+      - ${OUT:-./result}:/data/output
+      - ${TEMPLATES:-./templates}:/data/templates:ro
+      - ${CALIB:-./calibration}:/data/calibration
+    environment:
+      <<: *pdiseg-env
+      PDISEG_PREPARE_MOUNTS: "1"
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M,mode=1777
+
+  report:
+    <<: [*pdiseg-image, *pdiseg-limits]
+    profiles: ["tools"]
+    restart: "no"
+    depends_on:
+      recognize:
+        condition: service_completed_successfully
+    command:
+      - sh
+      - -c
+      - |
+        mkdir -p /data/report \
+        && nice -n "$${PDISEG_NICE}" python /app/scripts/build-t2-report.py \
+             --templates /data/templates \
+             --predictions /data/output/recognition.csv \
+             --sweep /data/calibration/recognition_sweep.csv \
+             --out /data/report/t2_report.pdf \
+        && nice -n "$${PDISEG_NICE}" python /app/scripts/build-t2-simplified.py \
+             --templates /data/templates \
+             --predictions /data/output/recognition.csv \
+             --out /data/report/t2_simplified.pdf
+    volumes:
+      - ${OUT:-./result}:/data/output:ro
+      - ${TEMPLATES:-./templates}:/data/templates:ro
+      - ${CALIB:-./calibration}:/data/calibration:ro
+      - ${REPORT:-./docs/report}:/data/report
+    environment:
+      <<: *pdiseg-env
+      PDISEG_PREPARE_MOUNTS: "1"
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=128M,mode=1777
+
+  review:
+    <<: [*pdiseg-image, *pdiseg-limits]
+    profiles: ["review"]
     user: "1000:1000"
     command:
       - pdiseg-review
@@ -141,9 +231,9 @@ services:
     ports:
       - "8765:8765"
     volumes:
-      - ./data/Train_and_Validation:/data/input:ro
-      - ./calibration:/data/calibration:ro
-      - ./result:/data/output:ro
+      - ${DATA:-./data/Train_and_Validation}:/data/input:ro
+      - ${CALIB:-./calibration}:/data/calibration:ro
+      - ${OUT:-./result}:/data/output:ro
     environment:
       <<: *pdiseg-env
     security_opt:
